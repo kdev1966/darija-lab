@@ -179,6 +179,16 @@ SOURCES: dict[str, Source] = {
              "compressés — inutile d'avaler les 1,9 Go du dump complet, un "
              "classifieur sur n-grammes sature bien avant.",
     ),
+    "ar_source": Source(
+        key="ar_source", role="negative", kind="wikipedia", locator="arwikisource",
+        max_bytes=60 * MB, license="domaine public / CC BY-SA 4.0",
+        note="Wikisource en arabe : prose classique, en grande partie "
+             "narrative. C'est l'ancre négative du **registre du récit**, que "
+             "`ar` ne pouvait pas fournir — l'encyclopédie est hors registre, "
+             "donc un repère faussé pour juger un conte. Les textes sont "
+             "anciens et dans le domaine public ; seul l'appareil du wiki "
+             "relève de CC BY-SA.",
+    ),
 }
 
 #: Il n'existe **pas** de Wikipédia en tunisien. Seuls l'arabe standard (``ar``),

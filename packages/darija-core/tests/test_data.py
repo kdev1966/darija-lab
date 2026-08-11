@@ -78,9 +78,26 @@ def test_arabic_ratio():
 
 def test_dump_url_uses_the_stable_name():
     """Les tranches numérotées changent de bornes à chaque dump ; on les évite."""
-    url = W.DUMP_URL.format(lang="ary")
+    url = W.DUMP_URL.format(project=W.project_name("ary"))
     assert url.endswith("arywiki-latest-pages-articles.xml.bz2")
     assert "p1p" not in url
+
+
+def test_un_code_de_langue_designe_lencyclopedie():
+    """Le comportement historique ne change pas : « ary » reste arywiki."""
+    assert W.project_name("ary") == "arywiki"
+
+
+def test_un_nom_de_projet_complet_passe_tel_quel():
+    """Ouvre Wikisource, seule ancre négative disponible pour le registre du récit.
+
+    Wikipédia est encyclopédique : la comparer à un conte tunisien mesurerait
+    l'écart de registre autant que l'écart de langue. Wikisource fournit de la
+    prose classique narrative, donc un repère comparable.
+    """
+    assert W.project_name("arwikisource") == "arwikisource"
+    url = W.DUMP_URL.format(project=W.project_name("arwikisource"))
+    assert url.endswith("arwikisource-latest-pages-articles.xml.bz2")
 
 
 def test_dump_stats_serialisable():

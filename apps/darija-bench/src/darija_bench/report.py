@@ -40,6 +40,7 @@ from dataclasses import dataclass
 
 from darija.dialect import DialectModel
 
+from . import anchors
 from .prompts import Prompt
 from .runner import Reply
 from .scoring import Verdict, evaluate
@@ -64,6 +65,11 @@ class Cell:
     #: Part des scores dans la bande d'indécision. Élevée = la mesure ne
     #: tranche pas ici, et aucun verdict individuel n'est fiable.
     borderline_rate: float | None = None
+
+    @property
+    def position(self) -> float | None:
+        """Position de la médiane entre les deux ancres narratives humaines."""
+        return None if self.median is None else anchors.position(self.median)
 
     @property
     def coverage(self) -> float:
@@ -206,15 +212,16 @@ def render(
         "",
         "== position ==",
         f"  {'modele':<{width}}  {'condition':<10} {'ecriture':<8} "
-        f"{'n':>4} {'err':>4} {'n/scor':>7} {'mediane':>8} {'indecis':>8}",
-        "  " + "-" * (width + 54),
+        f"{'n':>4} {'err':>4} {'n/scor':>7} {'mediane':>8} {'position':>9} {'indecis':>8}",
+        "  " + "-" * (width + 64),
     ]
     for c in cells:
         med = f"{c.median:.3f}" if c.median is not None else "—"
         ind = f"{c.borderline_rate:.0%}" if c.borderline_rate is not None else "—"
+        pos = f"{c.position:.0%}" if c.position is not None else "—"
         out.append(
             f"  {c.model:<{width}}  {c.condition:<10} {c.script:<8} "
-            f"{c.n:>4} {c.n_errors:>4} {c.n_unscorable:>7} {med:>8} {ind:>8}"
+            f"{c.n:>4} {c.n_errors:>4} {c.n_unscorable:>7} {med:>8} {pos:>9} {ind:>8}"
         )
 
     if shifts:
@@ -244,6 +251,10 @@ def render(
         "  et le registre deplace le niveau de base plus que le bruit de mesure.",
         "  Un tel taux dependrait de la composition du jeu de prompts, pas du modele.",
         "",
+        f"  « position » = 0 % au niveau du recit en fusha ({anchors.BAS:.3f}, Wikisource),",
+        f"                 100 % au niveau du recit tunisien humain ({anchors.HAUT:.3f}).",
+        "                 Les deux reperes sont du RECIT : ancrer sur l'encyclopedie",
+        f"                 ({anchors.ENCYCLOPEDIQUE:.3f}) aurait ajoute l'ecart de registre.",
         "  « indecis » = part des scores a moins de "
         f"{BORDERLINE} du seuil. Eleve = la mesure",
         "                ne tranche pas ici ; aucun verdict individuel n'est fiable.",

@@ -27,7 +27,22 @@ from ..normalize import Level, normalize
 #: non les tranches numérotées (``…articles1.xml-p1p340838.bz2``) : leurs bornes
 #: ``p<début>p<fin>`` changent à chaque dump, donc l'URL casse. Couper le flux
 #: donne le même résultat sans dépendre d'un nom instable.
-DUMP_URL = "https://dumps.wikimedia.org/{lang}wiki/latest/{lang}wiki-latest-pages-articles.xml.bz2"
+DUMP_URL = (
+    "https://dumps.wikimedia.org/{project}/latest/{project}-latest-pages-articles.xml.bz2"
+)
+
+
+def project_name(locator: str) -> str:
+    """Nom du projet MediaWiki à partir d'un code de source.
+
+    ``"ar"`` désigne l'encyclopédie et devient ``"arwiki"``. Un nom de projet
+    complet passe tel quel, ce qui ouvre l'accès à Wikisource — de la prose
+    classique en arabe standard, en grande partie narrative et dans le domaine
+    public. C'est l'ancre négative qui manquait au registre du récit :
+    Wikipédia n'offrait que de l'encyclopédique, donc un repère hors registre.
+    """
+    return locator if "wik" in locator else f"{locator}wiki"
+
 
 _NS = re.compile(r"^\{[^}]+\}")
 _ARABIC = re.compile(r"[؀-ۿ]")
@@ -144,7 +159,7 @@ def iter_pages(
     stats = DumpStats()
     parser = XMLPullParser(events=("start", "end"))
     root = None
-    url = DUMP_URL.format(lang=lang)
+    url = DUMP_URL.format(project=project_name(lang))
 
     try:
         for data in _stream_decompressed(url, max_bytes, stats):
@@ -215,6 +230,7 @@ def iter_lines(
 
 __all__ = [
     "DUMP_URL",
+    "project_name",
     "DumpStats",
     "arabic_ratio",
     "iter_lines",

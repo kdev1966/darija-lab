@@ -74,11 +74,16 @@ def test_la_fusha_conversationnelle_ne_passe_pas(model):
     # rassurant qui ne généralise pas au registre qui compte.
     #
     # La conjonction avec les marqueurs le rattrape : la fusha n'en utilise
-    # aucun (0 ou 1 distinct sur les six), le tunisien en a 2 à 5.
+    # aucun, ce texte-ci en produit zéro.
+    #
+    # Le minimum exigé a depuis été ramené de 2 à 1, parce que la vérité
+    # terrain (432 blocs de récit tunisien authentique) a montré qu'exiger 2
+    # rejetait 37 % de la langue à reconnaître. Voir MIN_DISTINCT_MARKERS et
+    # tests/test_validation_narrative.py.
     verdict = _verdict(FUSHA, model)
     assert verdict.scorable
     assert verdict.above_classifier, "le classifieur seul laisse passer ce texte"
-    assert verdict.n_markers is not None and verdict.n_markers < 2
+    assert verdict.n_markers == 0
     assert not verdict.is_tunisian, (verdict.score, verdict.n_markers)
 
 

@@ -82,18 +82,35 @@ marqueur distinct côté fusha, 2 à 5 côté tunisien.
 
 Chaque signal couvre l'angle mort de l'autre.
 
-| règle | faux positifs (fusha) | vrais positifs (tunisien) |
+### La vérité terrain a corrigé cette règle
+
+`HkayetErwi` — 432 blocs de **récit tunisien humain**, sous CC BY-SA 4.0 — a
+servi de premier positif de référence. Il a démenti le diagnostic :
+
+| minimum de marqueurs exigé | tunisien authentique conservé | faux positifs fusha |
 |---|---|---|
-| classifieur seul | 2 / 6 | 6 / 6 |
-| marqueurs seuls (≥ 2 distincts) | 1 / 6 | 6 / 6 |
-| **les deux** | **0 / 6** | **6 / 6** |
+| classifieur seul | 94,0 % | 2 / 6 |
+| **≥ 1 (règle actuelle)** | **87,0 %** | 1 / 6 |
+| ≥ 2 (règle initiale) | 63,2 % | 0 / 6 |
+
+Exiger deux marqueurs rejetait **37 % du tunisien réel** pour éviter un unique
+faux positif sur six textes écrits par l'auteur du banc. C'était calibrer
+l'instrument sur sa propre main plutôt que sur la langue.
+
+Le classifieur, lui, reconnaît le récit authentique à 94 %, avec seulement
+6,9 % dans la bande d'indécision. **Il n'est donc pas aveugle au registre
+narratif** — ce sont les sorties de modèles qui sont réellement moins
+tunisiennes que du tunisien humain.
 
 ### Réserves, à lire avant de citer un chiffre
 
-- **La règle est provisoire.** Six textes par côté, écrits par une seule main.
-  C'est une indication, pas un seuil validé. La première campagne réelle sert
-  aussi à valider la règle — d'où les deux signaux gardés séparés dans le
-  fichier de résultats, révisables sans recollecter.
+- **Aucun taux de « réponses tunisiennes » n'est publié**, et c'est délibéré :
+  le seuil coupe au milieu de la distribution des sorties de modèles, et le
+  registre déplace le niveau de base plus que le bruit de mesure. Un tel taux
+  dépendrait de la composition du jeu de prompts, pas du modèle évalué.
+- **Le corpus de validation n'est pas versé dans le dépôt.** CC BY-SA
+  imposerait le partage à l'identique aux œuvres dérivées. Les tests se sautent
+  quand il n'est pas en cache local ; la CI ne télécharge rien.
 - **L'Arabizi passe par une translittération approximative.** `to_arabic` rend
   `barcha` en `بارشا`, que le motif des marqueurs ne reconnaît même pas. Le
   rapport sépare toujours ces lignes ; les mélanger donnerait un chiffre unique

@@ -50,12 +50,27 @@ from darija.normalize import Level, normalize, script_ratio
 #: ne doit pas être translittérée, ça la détruirait.
 LATIN_DOMINANT: float = 0.60
 
-#: Nombre de marqueurs **distincts** exigés en plus du classifieur. Mesuré :
-#: la fusha conversationnelle en produit 0 ou 1, le tunisien 2 à 5. On compte
-#: les marqueurs distincts et non les occurrences, parce que la diversité ne
-#: dépend pas de la longueur du texte — dix ``اللي`` ne prouvent rien de plus
-#: qu'un seul.
-MIN_DISTINCT_MARKERS: int = 2
+#: Nombre de marqueurs **distincts** exigés en plus du classifieur.
+#:
+#: Cette valeur a été fixée à 2 sur six textes de fusha écrits à la main, puis
+#: **corrigée par la vérité terrain**. Mesuré sur ``HkayetErwi`` — 432 blocs de
+#: récit tunisien authentique, sous licence CC BY-SA 4.0 :
+#:
+#: ===================  ==========================  ====================
+#: minimum exigé        tunisien authentique gardé  faux positifs fusha
+#: ===================  ==========================  ====================
+#: classifieur seul     94,0 %                      2/6
+#: ``>= 1``             87,0 %                      1/6
+#: ``>= 2`` (ancien)    63,2 %                      0/6
+#: ===================  ==========================  ====================
+#:
+#: Exiger deux marqueurs rejetait **37 % du tunisien authentique** pour éviter
+#: un unique faux positif sur six textes que j'avais écrits moi-même. C'était
+#: calibrer l'instrument sur son auteur plutôt que sur la langue.
+#:
+#: On compte les marqueurs distincts et non les occurrences : la diversité ne
+#: dépend pas de la longueur, dix ``اللي`` ne prouvent rien de plus qu'un seul.
+MIN_DISTINCT_MARKERS: int = 1
 
 
 @dataclass(frozen=True)

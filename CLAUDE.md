@@ -70,9 +70,19 @@ pas le tunisien du marocain (qui partage `علاش` `كيفاش` `وين` `ال�
 fusha n'en utilise aucun — 0 ou 1 marqueur distinct contre 2 à 5. Chaque signal
 couvre l'angle mort de l'autre ; en conjonction, 0 faux positif sur 6.
 
-**Statut : provisoire.** Six textes par côté, écrits à la main. Voir
-`apps/darija-bench/src/darija_bench/scoring.py`, qui garde les deux signaux
-séparés pour que la règle soit révisable sans recollecter.
+**Corrigé depuis par la vérité terrain.** La règle exigeait 2 marqueurs, seuil
+fixé sur six textes écrits à la main. Mesuré ensuite sur `HkayetErwi` — 432
+blocs de récit tunisien humain, CC BY-SA 4.0 — ce réglage rejetait **37 % du
+tunisien authentique** pour éviter un seul faux positif. Ramené à 1 marqueur :
+87 % conservés au lieu de 63 %.
+
+Leçon, et c'est la même que celle des six autres biais : **calibrer sur des
+textes qu'on a écrits soi-même revient à mesurer sa propre main.** Il faut un
+positif de référence externe avant de fixer un seuil.
+
+Le classifieur, lui, reconnaît le récit authentique à 94 % avec 6,9 %
+d'indécision : il n'est pas aveugle au registre narratif. Ce sont les sorties
+de LLM qui sont réellement moins tunisiennes que du tunisien humain.
 
 **Une AUC élevée ne prouve rien ici.** Toujours valider source par source :
 

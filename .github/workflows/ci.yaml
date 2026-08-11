@@ -19,3 +19,20 @@ jobs:
       - run: pip install -e ".[dev,data]"
       - run: ruff check src tests
       - run: pytest -q
+
+  darija-bench:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/darija-bench
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      # Aucun extra de fournisseur : la CI ne doit appeler aucune API. Les
+      # tests qui ont besoin du modèle entraîné se sautent tout seuls, car
+      # `models/` est gitignoré — un rouge pour un fichier absent masquerait
+      # les vraies régressions.
+      - run: pip install -e ../../packages/darija-core -e ".[dev]"
+      - run: ruff check src tests
+      - run: pytest -q

@@ -1,11 +1,36 @@
-# Quelle application construire — décision en cours
+# Quelle application construire — décision prise
 
-`apps/` est vide. C'est le seul manque qui compte : la fondation est validée mais
-rien ne la consomme. Ce document conserve l'analyse pour que la décision ne soit
-pas refaite de zéro.
+**État : tranché. C'est le benchmark → `apps/darija-bench`.** Le choix
+appartenait à Othman ; ce document conserve le raisonnement qui y a mené, pour
+que la question ne soit pas rouverte de zéro.
 
-**État : non tranché.** Le choix appartient à Othman ; ce qui suit est le
-raisonnement, pas une conclusion imposée.
+## Ce qui a levé la réserve
+
+L'analyse ci-dessous se terminait sur un pari : « un benchmark ne vaut que si
+quelqu'un construit des modèles tunisiens, ce qui reste marginal ».
+
+Cette réserve reposait sur une erreur de cadrage. Elle supposait que les
+systèmes à évaluer étaient **des modèles tunisiens à venir**. Or ils existent
+déjà : Claude, GPT, Gemini, Qwen, Jais, AceGPT revendiquent tous l'arabe, et
+aucun ne dit ce qu'il fait du tunisien. La question — *quand on lui parle en
+tunisien, répond-il en tunisien ?* — est mesurable aujourd'hui, avec
+l'instrument déjà construit. Il n'y a plus de pari.
+
+Un second critère a départagé, appliqué au code plutôt qu'aux intentions :
+lequel des candidats **consomme réellement le socle** ? Le benchmark utilise
+les cinq modules, chacun pour ce à quoi il a été conçu. Le générateur LoRA en
+utilise deux, et aux marges. L'explorateur de patrimoine deux aussi, et reste
+bloqué par la licence.
+
+Ce que la construction a appris, et qui n'était pas prévu : le classifieur seul
+ne suffisait pas — voir le biais nº 7 dans `CLAUDE.md`.
+
+---
+
+## L'analyse d'origine
+
+Conservée telle quelle. Elle reste valable pour l'ordre des travaux : mesurer
+d'abord, produire ensuite.
 
 ---
 
@@ -112,6 +137,10 @@ construire mal.
 **Réserve maintenue :** un benchmark ne vaut que si quelqu'un construit des
 modèles tunisiens. C'est marginal aujourd'hui. C'est un pari sur la trajectoire
 des LLM en langues sous-dotées — raisonnable, mais un pari.
+
+> *Levée depuis — voir « Ce qui a levé la réserve » en tête de document. Les
+> systèmes à évaluer sont les modèles généralistes existants, pas des modèles
+> tunisiens à venir.*
 
 **Compromis proposé :** le benchmark d'abord, puis **un** petit générateur — non
 pour concurrencer, mais comme premier système à évaluer. Il valide l'instrument,

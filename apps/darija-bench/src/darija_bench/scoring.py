@@ -1,0 +1,180 @@
+"""Mesure de la tunisianité d'une réponse de modèle.
+
+La décision est une **conjonction de deux signaux**, parce qu'aucun des deux ne
+suffit seul. Ce n'était pas le design prévu : il vient d'une mesure qui a
+réfuté le premier.
+
+**Ce qu'on croyait.** Le classifieur contrastif ``vs_maghreb`` rejette l'arabe
+standard sans l'avoir jamais vu à l'entraînement — sur 4 000 blocs de Wikipédia
+arabe, médiane 0,786 pour un seuil appris à 0,838, soit 0,4 % au-dessus. Un
+seul axe semblait donc couvrir les deux dérives, vers un autre maghrébin comme
+vers la fusha.
+
+**Ce qu'on a mesuré.** ``ar`` est de la prose encyclopédique. Une réponse
+d'assistant en fusha sur un sujet du quotidien est un troisième registre, et
+c'est celui que ce banc rencontre. Sur six passages de ce type écrits à la
+main, le classifieur en classe **deux comme tunisiens** (0,842 et 0,867 pour un
+seuil de 0,838) — 33 % de faux positifs là où l'encyclopédique en donnait
+0,4 %. C'est le biais nº 6 du dépôt qui se répète : un agrégat rassurant qui ne
+généralise pas au registre qui compte.
+
+**Ce qui marche.** Les marqueurs échouent à séparer le tunisien du marocain,
+qui partage ``علاش`` ``كيفاش`` ``وين`` ``اللي`` — c'est mesuré, et le module
+l'annonce (AUC ~0,77). Mais la fusha n'en utilise **aucun** : sur le même jeu,
+0 ou 1 marqueur distinct côté fusha, 2 à 5 côté tunisien. Les deux signaux
+couvrent exactement l'angle mort l'un de l'autre. En conjonction — classifieur
+au-dessus du seuil **et** au moins deux marqueurs distincts — 0 faux positif
+sur 6 et 6 vrais positifs sur 6.
+
+**Statut de cette règle : provisoire.** Six textes par côté, écrits par une
+seule main. C'est une indication, pas un seuil validé. La première campagne
+réelle sert donc aussi à valider la règle elle-même, et le rapport garde les
+deux signaux séparés pour qu'on puisse la réviser sans recollecter.
+
+Réserve indépendante : **la translittération de l'Arabizi est approximative**.
+``arabizi.to_arabic`` rend ``barcha`` en ``بارشا`` et non ``برشا`` — que le
+motif des marqueurs ne reconnaît même pas. Les scores sur l'Arabizi sont donc
+indicatifs, et le rapport les sépare toujours du reste.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+
+from darija import arabizi, codeswitch, markers
+from darija.dialect import DialectModel
+from darija.normalize import Level, normalize, script_ratio
+
+#: Part de caractères latins au-delà de laquelle on tente la translittération.
+#: Le seuil est haut à dessein : une réponse arabe contenant deux mots français
+#: ne doit pas être translittérée, ça la détruirait.
+LATIN_DOMINANT: float = 0.60
+
+#: Nombre de marqueurs **distincts** exigés en plus du classifieur. Mesuré :
+#: la fusha conversationnelle en produit 0 ou 1, le tunisien 2 à 5. On compte
+#: les marqueurs distincts et non les occurrences, parce que la diversité ne
+#: dépend pas de la longueur du texte — dix ``اللي`` ne prouvent rien de plus
+#: qu'un seul.
+MIN_DISTINCT_MARKERS: int = 2
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """Le résultat de mesure d'une réponse.
+
+    ``scorable`` est faux quand la réponse est trop courte pour le classifieur.
+    Ce n'est pas un échec du modèle évalué : c'est une réponse dont on ne sait
+    rien. Le rapport les compte séparément plutôt que de les traiter comme des
+    échecs, ce qui gonflerait artificiellement le taux d'erreur.
+
+    Les deux signaux de la conjonction — ``above_classifier`` et ``n_markers``
+    — restent exposés séparément à côté du verdict ``is_tunisian``. C'est
+    délibéré : la règle de conjonction est provisoire, et on doit pouvoir la
+    réviser sur des données déjà collectées sans repayer les appels.
+    """
+
+    prompt_id: str
+    model: str
+    condition: str
+    script: str
+    n_words: int
+    scorable: bool
+    skipped: str | None = None
+    score: float | None = None
+    label: str | None = None
+    above_classifier: bool | None = None
+    n_markers: int | None = None
+    is_tunisian: bool | None = None
+    transliterated: bool = False
+    script_ratio: dict[str, float] = field(default_factory=dict)
+    codeswitch: dict[str, float] = field(default_factory=dict)
+    explanation: str = ""
+
+    def as_dict(self) -> dict[str, object]:
+        """Vue sérialisable, pour le fichier de résultats."""
+        return asdict(self)
+
+
+def prepare(reply: str) -> tuple[str, bool]:
+    """Ramène une réponse à une forme que le classifieur peut lire.
+
+    Le filtre ``arabic_only`` de l'entraînement a éliminé l'intégralité de
+    TUNIZI, donc le classifieur n'a **jamais vu d'Arabizi**. Lui en soumettre
+    directement ne mesurerait rien. On translittère donc — en sachant que la
+    conversion est lossy (voir le module).
+
+    Returns:
+      Le texte à scorer, et un drapeau disant s'il a été translittéré.
+
+    """
+    if not reply.strip():
+        return "", False
+    ratio = script_ratio(reply)
+    if ratio.get("latin", 0.0) >= LATIN_DOMINANT and arabizi.is_arabizi(reply):
+        return arabizi.to_arabic(reply), True
+    return reply, False
+
+
+def count_words(text: str) -> int:
+    """Compte les mots comme le fait le classifieur, après normalisation."""
+    return len(normalize(text, Level.STANDARD).split())
+
+
+def evaluate(
+    reply: str,
+    model: DialectModel,
+    *,
+    prompt_id: str,
+    model_name: str,
+    condition: str,
+    script: str,
+) -> Verdict:
+    """Mesure une réponse.
+
+    Args:
+      reply: le texte brut renvoyé par le modèle évalué.
+      model: le classifieur de dialecte, chargé une fois par exécution.
+      prompt_id: identifiant du prompt, reporté tel quel.
+      model_name: nom du modèle évalué, reporté tel quel.
+      condition: ``implicite`` ou ``explicite``.
+      script: écriture du prompt d'origine, pour séparer les agrégats.
+
+    """
+    text, translit = prepare(reply)
+    n_words = count_words(text)
+
+    common = {
+        "prompt_id": prompt_id,
+        "model": model_name,
+        "condition": condition,
+        "script": script,
+        "n_words": n_words,
+        "transliterated": translit,
+    }
+
+    if not text:
+        return Verdict(**common, scorable=False, skipped="réponse vide")
+    if n_words < model.min_words:
+        return Verdict(
+            **common,
+            scorable=False,
+            skipped=f"trop court ({n_words} mots, minimum {model.min_words})",
+            script_ratio=dict(script_ratio(text)),
+        )
+
+    predicted = model.predict(text)
+    score = model.score(text)
+    above = score >= model.threshold
+    distinct = len({m.marker for m in markers.find(text)})
+    return Verdict(
+        **common,
+        scorable=True,
+        score=round(score, 4),
+        label=predicted[0] if predicted else None,
+        above_classifier=above,
+        n_markers=distinct,
+        is_tunisian=above and distinct >= MIN_DISTINCT_MARKERS,
+        script_ratio=dict(script_ratio(text)),
+        codeswitch=dict(codeswitch.profile(text)),
+        explanation=markers.explain(text),
+    )

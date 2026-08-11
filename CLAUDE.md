@@ -8,9 +8,10 @@ sont en français ; les identifiants restent en anglais.
 
 ```
 packages/darija-core/        bibliothèque socle (98 tests, ruff propre)
+apps/darija-bench/           banc d'évaluation de LLM (22 tests, ruff propre)
 data/tunisian-poetry-corpus/ 2 028 textes de poésie populaire, 396 681 mots
-apps/                        applications (vide pour l'instant)
 docs/HANDOVER.md             historique détaillé et mesures
+docs/ROADMAP.md              le choix de la première application, et pourquoi
 ```
 
 ---
@@ -42,7 +43,7 @@ Il n'apprend pas « voici du tunisien », il apprend « ceci plutôt que cela »
 **Le choix des négatifs détermine ce que le modèle sait faire.** Entraîné contre
 du MSA seul, il étiquette du marocain comme tunisien.
 
-### 4. Six biais ont été trouvés et corrigés — ne pas les réintroduire
+### 4. Sept biais ont été trouvés et corrigés — ne pas les réintroduire
 
 Chacun n'est devenu visible qu'après correction du précédent. Tous sont
 documentés dans le code et verrouillés par des tests.
@@ -55,6 +56,23 @@ documentés dans le code et verrouillés par des tests.
 | 4 | entités | traits `مغرب`, `تونسي`, `لطفي` | `strip_entities` |
 | 5 | provenance | 0,998 interne mais **70 %** ailleurs | plusieurs corpus tunisiens |
 | 6 | registre | 25,6 % du marocain formel mal classé | registres équilibrés |
+| 7 | registre d'assistant | 0,4 % de faux positifs sur la fusha encyclopédique, mais **33 %** sur la fusha conversationnelle | conjonction classifieur + marqueurs |
+
+**Le septième s'est révélé en construisant `darija-bench`**, et il suit
+exactement le même schéma que le sixième. `darija data validate` mesure 0,4 %
+de faux positifs sur `ar` — mais `ar` est de la prose encyclopédique. Une
+réponse d'assistant en fusha sur un sujet du quotidien est un troisième
+registre : sur six passages de ce type, le classifieur en a classé **deux**
+comme tunisiens (0,842 et 0,867 pour un seuil de 0,838).
+
+Le correctif exploite une complémentarité mesurée : les marqueurs ne séparent
+pas le tunisien du marocain (qui partage `علاش` `كيفاش` `وين` `اللي`), mais la
+fusha n'en utilise aucun — 0 ou 1 marqueur distinct contre 2 à 5. Chaque signal
+couvre l'angle mort de l'autre ; en conjonction, 0 faux positif sur 6.
+
+**Statut : provisoire.** Six textes par côté, écrits à la main. Voir
+`apps/darija-bench/src/darija_bench/scoring.py`, qui garde les deux signaux
+séparés pour que la règle soit révisable sans recollecter.
 
 **Une AUC élevée ne prouve rien ici.** Toujours valider source par source :
 
@@ -145,34 +163,36 @@ jamais vues.
 
 ## Où en est le projet
 
-La fondation est solide et validée, mais **elle n'a encore aucun consommateur** :
-`apps/` est vide. Le risque actuel est de continuer à polir une bibliothèque que
-rien n'utilise.
+**Le choix est tranché : `apps/darija-bench`.** Le socle a désormais un
+consommateur, qui utilise ses cinq modules.
 
-### Décision en cours — voir `docs/ROADMAP.md`
+La réserve du roadmap — « un benchmark ne vaut que si quelqu'un construit des
+modèles tunisiens » — a été levée par un recadrage : les systèmes à évaluer
+existent déjà (Claude, GPT, Gemini, Qwen, Jais…), tous revendiquent l'arabe, et
+aucun ne dit ce qu'il fait du tunisien. Il n'y a plus de pari sur des modèles à
+venir.
 
-Le choix de la première application **n'est pas tranché**. Deux candidats, et
-l'analyse complète est dans le roadmap :
+**Ne pas relancer l'analyse « produire ou mesurer »** si la question revient —
+elle est close, et `docs/ROADMAP.md` en garde le raisonnement.
 
-- **Un benchmark d'évaluation Darija pour LLM** — mesurer si un modèle répond
-  vraiment en tunisien. `darija-core` fournit déjà tous les instruments.
-- **Un générateur par LoRA** sur modèle ouvert, à partir des 3 631 paires
-  déjà formatées du dépôt d'origine.
+### État du banc
 
-**Recommandation formulée :** commencer par la mesure, parce qu'elle est **en
-amont** — on ne peut pas construire un bon générateur sans elle, et la faire
-après revient à la faire mal. Puis un petit générateur comme premier système à
-évaluer : il valide l'instrument, l'instrument le guide.
+Instrument complet et testé, **mais aucune campagne réelle n'a encore tourné** :
+il n'y avait pas de clé d'API dans l'environnement au moment de l'écriture. Les
+chiffres qui existent viennent de textes écrits à la main, pas de sorties de
+modèles.
 
-Réserve honnête : un benchmark ne vaut que si quelqu'un construit des modèles
-tunisiens, ce qui reste marginal. C'est un pari.
+La première campagne fera donc deux choses à la fois : produire un premier
+classement, et **valider la règle de décision elle-même** (voir biais nº 7).
 
-**Ne pas relancer cette analyse de zéro** si la question revient — la reprendre
-depuis `docs/ROADMAP.md`, et demander plutôt ce qui a changé depuis.
+### Suite naturelle
 
-### Chantiers techniques identifiés, indépendants du choix
-
-- **Arabizi** — 0 bloc dans le classifieur, alors que c'est la forme écrite
-  majoritaire. Le trou le plus net.
-- **Registre littéraire** — le corpus de poésie fournirait une troisième classe.
-- **Licence du corpus de poésie** — bloque toute publication.
+- **Faire tourner une campagne** — c'est ce qui manque, et rien d'autre ne
+  peut le remplacer.
+- **Un petit générateur par LoRA** comme premier système maison à passer au
+  banc. L'ordre reste celui du roadmap : l'instrument d'abord, il le guide.
+- **Arabizi** — le banc l'évalue via translittération approximative. Injecter
+  du TUNIZI translittéré à l'entraînement du classifieur reste à tester ;
+  c'est le trou le plus net du socle.
+- **Registre littéraire** — la poésie fournirait une troisième classe.
+- **Licence du corpus de poésie** — bloque toujours toute publication.

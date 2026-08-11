@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "darija-bench"
+version = "0.1.0"
+description = "Banc d'évaluation : un LLM répond-il vraiment en tunisien ?"
+requires-python = ">=3.11"
+dependencies = ["darija-core"]
+
+[project.optional-dependencies]
+# Un fournisseur = un extra. Aucun n'est requis : le banc sait rejouer un
+# fichier de réponses déjà collecté sans qu'aucun SDK ne soit installé.
+anthropic = ["anthropic>=0.40"]
+openai = ["openai>=1.40"]
+google = ["google-genai>=0.3"]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+darija-bench = "darija_bench.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+darija_bench = ["data/*.jsonl"]
+
+# Identique à packages/darija-core : le mono-repo garde une seule règle.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "D"]
+ignore = ["D203", "D213", "D401"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]

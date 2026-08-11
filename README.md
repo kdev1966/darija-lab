@@ -6,9 +6,11 @@ Bibliothèques réutilisables, corpus, et applications qui les consomment.
 ```
 packages/darija-core/          socle : normalisation, Arabizi, alternance
                                codique, marqueurs, classification de dialecte
+apps/darija-bench/             banc d'évaluation : un LLM répond-il vraiment
+                               en tunisien, ou glisse-t-il vers la fusha ?
 data/tunisian-poetry-corpus/   2 028 textes de poésie populaire, 396 681 mots
-apps/                          applications (vide)
 docs/HANDOVER.md               historique détaillé et mesures
+docs/ROADMAP.md                le choix de la première application
 CLAUDE.md                      contexte projet
 ```
 

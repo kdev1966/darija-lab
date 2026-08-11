@@ -5,6 +5,7 @@ Trois sous-commandes, qui suivent la séparation collecte / mesure ::
     darija-bench prompts                                  # inspecter le jeu
     darija-bench run --model anthropic:claude-opus-5 ...  # collecter (payant)
     darija-bench report --replies replies.jsonl ...       # mesurer (gratuit)
+    darija-bench serve --dialect-model ...                # interface locale
 
 ``report`` ne touche à aucune API : il se relance autant de fois qu'on veut,
 y compris après avoir modifié le scorer.
@@ -128,6 +129,14 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    """Ouvre l'interface locale."""
+    from .web import serve  # noqa: PLC0415 - import tardif : pas de coût si inutilisé
+
+    serve(DialectModel.load(args.dialect_model), port=args.port)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Point d'entrée."""
     parser = argparse.ArgumentParser(
@@ -185,6 +194,13 @@ def main(argv: list[str] | None = None) -> int:
         "--details", action="store_true", help="detailler les reponses jugees non tunisiennes"
     )
     p_report.set_defaults(fn=_cmd_report)
+
+    p_serve = sub.add_parser("serve", help="interface locale pour mesurer un texte colle")
+    p_serve.add_argument(
+        "--dialect-model", required=True, help="chemin du modele .json.gz de darija-core"
+    )
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.set_defaults(fn=_cmd_serve)
 
     args = parser.parse_args(argv)
     return int(args.fn(args))

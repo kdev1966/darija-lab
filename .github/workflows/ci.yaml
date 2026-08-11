@@ -1,0 +1,21 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  darija-core:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/darija-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      # L'extra `data` est installé ici parce que les tests importent
+      # darija.data. Sans lui la CI passe verte en local et rouge ici — c'est
+      # exactement le défaut relevé dans le dépôt d'origine (voir docs/HANDOVER.md).
+      - run: pip install -e ".[dev,data]"
+      - run: ruff check src tests
+      - run: pytest -q

@@ -1,0 +1,22 @@
+# environnements
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# caches d'outils
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# corpus téléchargés et modèles entraînés : reproductibles par
+# `darija data fetch` puis `darija data train`, inutile de les versionner.
+data/raw/
+models/
+
+# macOS
+.DS_Store
+**/.DS_Store
+.env

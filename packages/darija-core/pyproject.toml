@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "darija-core"
+version = "0.1.0"
+description = "Socle de traitement du texte tunisien : normalisation, Arabizi, alternance codique, classification de dialecte"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+keywords = ["tunisian", "darija", "arabic", "dialect", "arabizi", "nlp", "code-switching"]
+
+# Aucune dépendance d'exécution, et c'est délibéré : ce paquet est le socle
+# d'autres projets, il ne doit rien leur imposer.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+# Uniquement pour darija.data : les dumps Wikipedia n'utilisent que la stdlib,
+# seuls les jeux heberges sur Hugging Face demandent ces deux paquets.
+data = ["huggingface-hub>=0.20", "pyarrow>=14"]
+
+[project.scripts]
+darija = "darija.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "D"]
+ignore = ["D203", "D213", "D401"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]

@@ -42,6 +42,11 @@ class Source:
       max_bytes: plafond d'octets **compressés** lus. Le flux est interrompu
         au-delà, ce qui borne à la fois la bande passante et le disque.
         ``None`` = tout lire.
+      include: pour ``kind="hf"``, préfixes de chemin à retenir dans le dépôt.
+        Vide = tout prendre. Nécessaire depuis que LinTO est distribué comme
+        agrégat de dix-sept sous-corpus : en avaler l'intégralité ferait entrer
+        TSAC — déjà une source distincte ici — des deux côtés du découpage
+        train/test. C'est le biais nº 5 par la porte de derrière.
       license: licence déclarée, ou ``None`` si la source n'en déclare aucune.
       note: précision utile avant usage.
 
@@ -52,6 +57,7 @@ class Source:
     kind: Kind
     locator: str
     max_bytes: int | None = None
+    include: tuple[str, ...] = ()
     license: str | None = None
     note: str = ""
 
@@ -70,11 +76,27 @@ SOURCES: dict[str, Source] = {
     # ------------------------------------------------ positif : le tunisien
     "linto": Source(
         key="linto", role="positive", kind="hf",
-        locator="linagora/linto-dataset-text-ar-tn",
-        license="CC BY 4.0",
-        note="4,5 M lignes, 17 M mots. La seule source tunisienne à licence "
-             "claire, et la plus volumineuse. Contient 65k lignes explicitement "
-             "code-switchées, utiles à darija.codeswitch.",
+        # L'ancien dépôt `linagora/linto-dataset-text-ar-tn` a disparu : le
+        # `fetch` échouait donc sur toute machine neuve, rendant le modèle de
+        # référence irreproductible. Le dépôt vivant agrège dix-sept
+        # sous-corpus, d'où le filtre ci-dessous.
+        locator="linagora/Tunisian_Derja_Dataset",
+        include=(
+            "Derja_tunsi/", "HkayetErwi/", "TunBERT/", "TuDiCOI/", "Tweet_TN/",
+            "TunSwitchTunisiaOnly/", "TunSwitchCodeSwitching/",
+            "Sentiment_Derja/", "TunisianSentimentAnalysis/",
+            "TA_Segmentation/", "Tunisian_Dialectic_English_Derja/",
+            "MADAR_TunisianDialect/",
+        ),
+        # `TSAC/` est exclu : le dépôt le récupère déjà comme source distincte,
+        # et le laisser entrer ici mettrait les mêmes textes des deux côtés du
+        # découpage train/test. `QADI_TunisianDialect/` est exclu aussi — QADI
+        # ne distribue que des identifiants de tweets, voir docs/HANDOVER.md.
+        license="CC BY-SA 4.0",
+        note="Agrégat de sous-corpus tunisiens. La licence est CC BY-**SA** : "
+             "le partage à l'identique s'impose aux œuvres dérivées, ce qui "
+             "engage ce que ce dépôt pourra publier. `HkayetErwi/` est du "
+             "récit — le registre où le classifieur décroche le plus.",
     ),
     "arbml_tn": Source(
         key="arbml_tn", role="positive", kind="hf",

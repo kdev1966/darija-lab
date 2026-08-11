@@ -384,3 +384,38 @@ def test_reference_contrast_balances_registers():
 
 def test_register_warning_is_documented():
     assert "registre" in B.REGISTER_MATTERS.lower()
+
+
+# ------------------------------------------------- agrégat LinTO (biais nº 5)
+def test_linto_points_at_a_live_repository():
+    """L'ancien dépôt a disparu, rendant le modèle de référence irreproductible.
+
+    `darija data fetch --only linto` échouait sur toute machine neuve. LinTO
+    étant la principale source positive, plus personne ne pouvait reconstruire
+    le classifieur.
+    """
+    assert S.SOURCES["linto"].locator == "linagora/Tunisian_Derja_Dataset"
+
+
+def test_linto_declares_share_alike():
+    """La licence est CC BY-**SA**, pas CC BY : la réciprocité s'impose.
+
+    Enregistrer CC BY ici neutraliserait le seul garde-fou du dépôt, celui
+    dont la fonction est justement de suivre les licences avant publication.
+    """
+    assert "SA" in (S.SOURCES["linto"].license or "")
+
+
+def test_linto_excludes_the_corpora_already_fetched_separately():
+    """TSAC est déjà une source distincte : l'avaler ici contaminerait le test.
+
+    Le dépôt LinTO agrège dix-sept sous-corpus, TSAC compris. Sans filtre, les
+    mêmes textes se retrouveraient des deux côtés du découpage train/test —
+    le biais nº 5 (provenance) par la porte de derrière. QADI est exclu pour
+    une autre raison : il ne distribue que des identifiants de tweets.
+    """
+    include = S.SOURCES["linto"].include
+    assert include, "aucun filtre : tout le dépôt agrégé serait avalé"
+    assert not any(p.startswith("TSAC") for p in include)
+    assert not any(p.startswith("QADI") for p in include)
+    assert any(p.startswith("HkayetErwi") for p in include), "récit absent"

@@ -160,6 +160,8 @@ def _iter_hf(src: Source, min_words: int, max_lines: int | None) -> Iterator[str
     (HfApi, hf_hub_download), pq = _require_hf()
     files = HfApi().list_repo_files(src.locator, repo_type="dataset")
     picked = [f for f in files if f.lower().endswith(_HF_EXTS)]
+    if src.include:
+        picked = [f for f in picked if f.startswith(src.include)]
     if not picked:
         return
     picked.sort(key=lambda f: (_HF_EXTS.index(Path(f).suffix.lower()), f))

@@ -90,24 +90,31 @@ def _cmd_report(args: argparse.Namespace) -> int:
     model = DialectModel.load(args.dialect_model)
     replies = load_replies(path)
     verdicts = report_mod.score_all(replies, model)
-    cells = report_mod.aggregate(replies, verdicts)
-    print(report_mod.render(cells, model.threshold))
+    print(
+        report_mod.render(
+            report_mod.aggregate(replies, verdicts, model.threshold),
+            report_mod.paired_shifts(verdicts),
+            report_mod.by_register(verdicts, prompts_mod.load()),
+            model.threshold,
+        )
+    )
 
     if args.details:
-        print("\n=== reponses jugees non tunisiennes ===")
-        for verdict in verdicts:
-            if not verdict.scorable or verdict.is_tunisian:
+        # Les réponses de la bande d'indécision, celles où la mesure ne tranche
+        # pas. Ce sont elles qu'il faut lire à la main — c'est ainsi qu'on a
+        # découvert que les « rejets » étaient du tunisien authentique.
+        print(f"\n=== reponses dans la bande d'indecision (+/-{report_mod.BORDERLINE}) ===")
+        for v in verdicts:
+            if not v.scorable or v.score is None:
                 continue
-            cause = (
-                "classifieur sous le seuil"
-                if not verdict.above_classifier
-                else f"seuil franchi mais {verdict.n_markers} marqueur(s) distinct(s)"
-            )
+            if abs(v.score - model.threshold) >= report_mod.BORDERLINE:
+                continue
             print(
-                f"\n  {verdict.model}  {verdict.condition}  {verdict.prompt_id}"
-                f"  score={verdict.score}  → {cause}"
+                f"\n  {v.model}  {v.condition}  {v.prompt_id}"
+                f"  score={v.score}  ecart={v.score - model.threshold:+.4f}"
+                f"  marqueurs={v.n_markers}"
             )
-            print("  " + verdict.explanation.replace("\n", "\n  "))
+            print("  " + v.explanation.replace("\n", "\n  "))
     return 0
 
 

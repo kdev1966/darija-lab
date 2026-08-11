@@ -31,6 +31,12 @@ from darija.normalize import Level, normalize, script_ratio
 from . import anchors
 from .scoring import MIN_DISTINCT_MARKERS, prepare
 
+#: Au-delà de cette longueur, un score unique est une moyenne qui lisse la
+#: variation interne. Les ancres ayant été calculées sur des blocs d'environ
+#: 60 mots, comparer un texte long à elles n'est pas une comparaison à
+#: méthode égale : on découpe donc et on montre la dispersion.
+LONG_TEXT: int = 150
+
 #: Taille maximale acceptée, en octets. Un outil local n'a pas besoin de plus,
 #: et ça évite qu'un copier-coller malheureux fasse ramer la page.
 MAX_BODY = 200_000
@@ -89,7 +95,34 @@ class Measure:
             ],
             codeswitch={k: round(v, 3) for k, v in codeswitch.profile(scored).items()},
         )
+        if n_words >= LONG_TEXT:
+            out["blocks"] = self._blocks(scored)
         return out
+
+    def _blocks(self, text: str) -> dict[str, object]:
+        """Dispersion du score sur des blocs de la taille des ancres.
+
+        Un texte long mesuré d'un seul tenant rend une moyenne : un passage de
+        dialogue très dialectal et un passage narratif soutenu se compensent
+        sans qu'on le voie. Le découpage rétablit ce que la moyenne cachait, et
+        remet la mesure à la même échelle que les repères.
+        """
+        from darija.data.assemble import chunk  # noqa: PLC0415
+
+        blocks = chunk(text.splitlines())
+        if len(blocks) < 2:
+            return {}
+        scores = sorted(self.model.score(b) for b in blocks)
+        mid = len(scores) // 2
+        median = scores[mid] if len(scores) % 2 else (scores[mid - 1] + scores[mid]) / 2
+        return {
+            "n": len(scores),
+            "min": round(scores[0], 4),
+            "median": round(median, 4),
+            "max": round(scores[-1], 4),
+            "below_threshold": sum(1 for s in scores if s < self.model.threshold),
+            "positions": [round(anchors.position(s), 3) for s in scores],
+        }
 
 
 PAGE = """<!doctype html>
@@ -133,6 +166,9 @@ th{color:var(--muted);font-weight:600}
 .tag{display:inline-block;padding:.12rem .5rem;border-radius:99px;
   font-size:.78rem;border:1px solid var(--line);color:var(--muted)}
 .ok{color:var(--ok)} .no{color:var(--no)}
+.spark{display:flex;align-items:flex-end;gap:2px;height:50px;margin:.4rem 0 .2rem;
+  padding:0 .1rem;border-bottom:1px solid var(--line)}
+.spark i{flex:1 1 auto;min-width:3px;border-radius:2px 2px 0 0}
 .warn{border-left:3px solid var(--accent);padding-left:.9rem;color:var(--muted)}
 details{margin-top:.9rem} summary{cursor:pointer;color:var(--muted);font-size:.9rem}
 </style></head><body><div class="wrap">
@@ -186,6 +222,20 @@ function render(d){
       <tr><th>mots</th><td>${d.n_words}</td></tr>
       <tr><th>alternance codique</th><td>${cs}</td></tr>
     </table>
+    ${d.blocks&&d.blocks.n?`<details open><summary>dispersion sur ${d.blocks.n} blocs</summary>
+      <p class="hint" style="margin:.5rem 0">Le score unique ci-dessus est une moyenne.
+      Les reperes ont ete calcules sur des blocs d'environ 60 mots&nbsp;: voici votre
+      texte a la meme echelle.</p>
+      <div class="spark">${d.blocks.positions.map(p=>{
+        const h=Math.max(4,Math.min(46,(p+0.35)/1.7*46));
+        const c=p>=0.5?"var(--ok)":(p>=0?"var(--accent)":"var(--no)");
+        return `<i style="height:${h}px;background:${c}" title="${pct(p)}"></i>`;}).join("")}</div>
+      <table>
+        <tr><th>bloc le plus faible</th><td>${d.blocks.min}</td></tr>
+        <tr><th>mediane des blocs</th><td>${d.blocks.median}</td></tr>
+        <tr><th>bloc le plus fort</th><td>${d.blocks.max}</td></tr>
+        <tr><th>blocs sous le seuil</th><td>${d.blocks.below_threshold} / ${d.blocks.n}</td></tr>
+      </table></details>`:""}
     ${d.transliterated?`<div class="warn" style="margin-top:.9rem">
       Écriture latine détectée et translittérée avant mesure. La conversion est
       approximative&nbsp;: lisez ce score comme un indice.

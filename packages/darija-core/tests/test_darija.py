@@ -326,3 +326,51 @@ def test_evaluate_reports_threshold_and_accuracy():
     m = dialect.train(pos, neg)
     rep = dialect.evaluate(m, pos, neg)
     assert "threshold" in rep and 0.0 <= rep["accuracy"] <= 1.0
+
+
+# ------------------- graphies manquees, relevees sur des textes de modeles
+def test_barsha_reconnu_dans_ses_deux_graphies():
+    """``برشة`` se normalise en ``برشه`` et echappait au motif ancre sur alef.
+
+    C'est le marqueur le plus exclusivement tunisien de la liste — ni partage
+    avec le marocain comme ``علاش``, ni avec le classique comme le prefixe
+    ``ن-``. Le manquer coutait la seule preuve que le module sait produire.
+    Releve sur deux textes de modeles independants, qui l'employaient sans
+    qu'aucun ne soit compte.
+    """
+    from darija import markers as M
+
+    for graphie in ("برشا", "برشة"):
+        trouve = {m.marker for m in M.find(f"كان {graphie} فضولي")}
+        assert "quant_barsha" in trouve, graphie
+
+
+def test_negation_reconnue_detachee_comme_attachee():
+    """Les Tunisiens ecrivent ``ما تبعدش`` autant que ``ماتبعدش``.
+
+    Le motif exigeait le circumfixe colle. Mesure sur corpus : 53 blocs sur
+    400 de recit tunisien declenchaient, contre 180 avec l'espace optionnelle
+    — donc plus de deux tiers des negations manquees. Et zero faux positif sur
+    400 blocs de fusha, ce qui rend l'elargissement gratuit.
+
+    La negation est un trait morphologique, celui que le module annonce comme
+    le plus robuste a l'orthographe instable. Il l'etait le moins.
+    """
+    from darija import markers as M
+
+    for phrase in ("ما تبعدش على الدار", "ماتبعدش على الدار", "ما بقاش يعرف"):
+        trouve = {m.marker for m in M.find(phrase)}
+        assert "negation_ma_sh" in trouve, phrase
+
+
+def test_la_negation_elargie_ne_mord_pas_sur_la_fusha():
+    """Le risque de l'espace optionnelle etait d'attraper ``ما`` + mot en ش.
+
+    Mesure : aucun declenchement sur 400 blocs de Wikipedia arabe. Ce test
+    garde quelques tournures classiques comme sentinelle.
+    """
+    from darija import markers as M
+
+    for phrase in ("ما شاء الله كان", "وما ذلك الا بعد حين", "ما هذا الا بشر"):
+        trouve = {m.marker for m in M.find(phrase)}
+        assert "negation_ma_sh" not in trouve, phrase

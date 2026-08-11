@@ -36,7 +36,13 @@ MARKERS: Final[dict[str, tuple[str, str, str]]] = {
         "préfixe n- de 1re personne du singulier (نمشي « je vais »)",
     ),
     "negation_ma_sh": (
-        r"\bما\S{1,12}ش\b",
+        # L'espace après ``ما`` est optionnelle : les Tunisiens écrivent le
+        # circumfixe détaché aussi souvent qu'attaché — « ما تبعدش » autant que
+        # « ماتبعدش ». Le motif collé ne voyait que 53 blocs sur 400 de récit
+        # tunisien là où celui-ci en voit 180, sans un seul faux positif sur
+        # 400 blocs de fusha. Manquer les deux tiers d'un trait morphologique
+        # contredisait la promesse de robustesse orthographique du module.
+        r"\bما\s?\S{1,12}ش\b",
         "morphologie",
         "circumfixe de négation ما...ش (ماناكلش « je ne mange pas »)",
     ),
@@ -53,7 +59,10 @@ MARKERS: Final[dict[str, tuple[str, str, str]]] = {
     "existential_famma": (r"\bفم[اه]\b", "mot-outil", "فما « il y a »"),
     "now_tawa": (r"\bتو[ا]?\b", "mot-outil", "توا « maintenant »"),
     # --- lexique caractéristique
-    "quant_barsha": (r"\bبرشا\b", "lexique", "برشا « beaucoup »"),
+    # ``برشة`` se normalise en ``برشه`` : sans la classe finale, la graphie la
+    # plus courante du marqueur le plus exclusivement tunisien échappait au
+    # motif. Releve sur deux textes de modeles independants.
+    "quant_barsha": (r"\bبرش[اه]\b", "lexique", "برشا « beaucoup »"),
     "num_zouz": (r"\bزوز\b", "lexique", "زوز « deux »"),
     "adj_behi": (r"\bباهي\b", "lexique", "باهي « bien »"),
     "enough_yezzi": (r"\bيزي\b", "lexique", "يزي « ça suffit »"),

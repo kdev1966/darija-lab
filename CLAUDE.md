@@ -149,12 +149,30 @@ La fondation est solide et validée, mais **elle n'a encore aucun consommateur**
 `apps/` est vide. Le risque actuel est de continuer à polir une bibliothèque que
 rien n'utilise.
 
-Trois suites possibles, par ordre de valeur estimée :
+### Décision en cours — voir `docs/ROADMAP.md`
 
-1. **Une première application concrète** — trier des commentaires, filtrer un
-   flux, annoter un corpus. Rien ne révèle ce qui manque comme un usage réel.
-2. **Combler le trou Arabizi** — un second modèle en alphabet latin, mêmes
-   contrôles. TUNIZI côté tunisien ; des jeux marocains en écriture latine
-   existent.
-3. **Le registre littéraire** — le corpus de poésie fournirait une troisième
-   classe de registre.
+Le choix de la première application **n'est pas tranché**. Deux candidats, et
+l'analyse complète est dans le roadmap :
+
+- **Un benchmark d'évaluation Darija pour LLM** — mesurer si un modèle répond
+  vraiment en tunisien. `darija-core` fournit déjà tous les instruments.
+- **Un générateur par LoRA** sur modèle ouvert, à partir des 3 631 paires
+  déjà formatées du dépôt d'origine.
+
+**Recommandation formulée :** commencer par la mesure, parce qu'elle est **en
+amont** — on ne peut pas construire un bon générateur sans elle, et la faire
+après revient à la faire mal. Puis un petit générateur comme premier système à
+évaluer : il valide l'instrument, l'instrument le guide.
+
+Réserve honnête : un benchmark ne vaut que si quelqu'un construit des modèles
+tunisiens, ce qui reste marginal. C'est un pari.
+
+**Ne pas relancer cette analyse de zéro** si la question revient — la reprendre
+depuis `docs/ROADMAP.md`, et demander plutôt ce qui a changé depuis.
+
+### Chantiers techniques identifiés, indépendants du choix
+
+- **Arabizi** — 0 bloc dans le classifieur, alors que c'est la forme écrite
+  majoritaire. Le trou le plus net.
+- **Registre littéraire** — le corpus de poésie fournirait une troisième classe.
+- **Licence du corpus de poésie** — bloque toute publication.

@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .prompts import Prompt
@@ -88,6 +88,20 @@ def existing_keys(path: Path) -> set[tuple[str, str, str]]:
     return keys
 
 
+@dataclass
+class CollectReport:
+    """Ce qu'une collecte a réellement produit.
+
+    ``abandoned`` recense les modèles dont le quota s'est épuisé en route. Sans
+    cette information, l'appelant ne peut pas distinguer « ce modèle est
+    mesuré » de « ce modèle a été coupé au tiers », et publierait les deux
+    comme équivalents.
+    """
+
+    calls: int = 0
+    abandoned: dict[str, str] = field(default_factory=dict)
+
+
 def _call(provider: Provider, prompt: str, system: str | None, *, sleep=time.sleep) -> str:
     """Appelle un fournisseur, en réessayant les ralentissements passagers.
 
@@ -119,7 +133,7 @@ def collect(
     conditions: Iterable[str] = ("implicite", "explicite"),
     resume: bool = True,
     on_progress: object = None,
-) -> int:
+) -> CollectReport:
     """Interroge chaque modèle sur chaque prompt, dans chaque condition.
 
     Les réponses sont écrites **au fil de l'eau**, une ligne JSON par appel :
@@ -134,7 +148,7 @@ def collect(
       on_progress: appelable optionnel reçevant chaque :class:`Reply` écrite.
 
     Returns:
-      Le nombre d'appels réellement effectués.
+      Un :class:`CollectReport` : le nombre d'appels et les modèles abandonnés.
 
     Raises:
       KeyError: condition inconnue.
@@ -147,7 +161,7 @@ def collect(
 
     done = existing_keys(out) if resume else set()
     out.parent.mkdir(parents=True, exist_ok=True)
-    calls = 0
+    report = CollectReport()
 
     providers = list(providers)
     prompts = list(prompts)
@@ -188,9 +202,11 @@ def collect(
                         )
                     fh.write(json.dumps(record.__dict__, ensure_ascii=False) + "\n")
                     fh.flush()
-                    calls += 1
+                    report.calls += 1
                     if callable(on_progress):
                         on_progress(record)
+            if abandoned:
+                report.abandoned[provider.name] = abandoned
             if abandoned and callable(on_progress):
                 on_progress(
                     Reply(
@@ -202,7 +218,7 @@ def collect(
                         error=f"quota epuise, modele abandonne : {abandoned[:120]}",
                     )
                 )
-    return calls
+    return report
 
 
 def load_replies(path: Path) -> list[Reply]:
@@ -213,3 +229,73 @@ def load_replies(path: Path) -> list[Reply]:
             continue
         out.append(Reply(**json.loads(line)))
     return out
+
+
+def relay(
+    pool: Iterable[str],
+    prompts: Iterable[Prompt],
+    out: Path,
+    *,
+    target: int,
+    conditions: Iterable[str] = ("implicite", "explicite"),
+    resume: bool = True,
+    on_progress: object = None,
+) -> dict[str, str]:
+    """Mesure ``target`` modèles en puisant dans une réserve de candidats.
+
+    Sur un palier gratuit, un modèle peut être hors d'atteinte avant le premier
+    appel — ``gemini-3.1-pro`` avait un quota de **zéro** — ou s'épuiser au
+    tiers d'une campagne. Passer une liste fixe de modèles produit alors des
+    mesures tronquées qu'on ne peut pas comparer entre elles.
+
+    Le relais renverse la logique : on ne demande pas « mesure ces trois
+    modèles » mais « obtiens-moi trois mesures complètes », et le prochain
+    candidat remplace celui qui tombe. La réserve est parcourue dans l'ordre
+    donné, donc les candidats préférés se placent en tête.
+
+    Args:
+      pool: spécifications ``fournisseur:modele``, par ordre de préférence.
+      prompts: prompts à poser — le même jeu pour tous, sans quoi les mesures
+        ne seraient pas comparables.
+      out: fichier de réponses, en ajout.
+      target: nombre de mesures complètes visé.
+      conditions: clés de :data:`CONDITIONS`.
+      resume: sauter les couples déjà présents dans ``out``.
+      on_progress: appelable optionnel reçevant chaque :class:`Reply`.
+
+    Returns:
+      Le sort de chaque candidat essayé : ``complet``, ``quota épuisé``, ou le
+      message d'erreur s'il n'a pas pu être construit. Les candidats jamais
+      atteints — parce que la cible était déjà remplie — sont absents.
+
+    """
+    from .providers import ProviderError as _PE  # noqa: PLC0415
+    from .providers import build  # noqa: PLC0415
+
+    prompts = list(prompts)
+    conditions = list(conditions)
+    issues: dict[str, str] = {}
+    complets = 0
+
+    for spec in pool:
+        if complets >= target:
+            break
+        try:
+            provider = build(spec)
+        except _PE as exc:
+            # Un candidat inconstructible ne doit pas arrêter le relais : c'est
+            # exactement le cas qu'il existe pour absorber.
+            issues[spec] = str(exc)
+            continue
+
+        report = collect(
+            [provider], prompts, out,
+            conditions=conditions, resume=resume, on_progress=on_progress,
+        )
+        if provider.name in report.abandoned:
+            issues[spec] = "quota épuisé"
+        else:
+            issues[spec] = "complet"
+            complets += 1
+
+    return issues

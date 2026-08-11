@@ -99,4 +99,55 @@ def test_reprise_saute_les_appels_deja_faits(tmp_path):
     collect([faux], _prompts(3), out, conditions=["implicite"])
     faux2 = FauxFournisseur()
     fait = collect([faux2], _prompts(3), out, conditions=["implicite"])
-    assert fait == 0 and faux2.appels == 0
+    assert fait.calls == 0 and faux2.appels == 0
+
+
+# --- relais : viser N mesures completes, pas N modeles ---
+
+
+def _relayable(monkeypatch, table):
+    """Fait resoudre `build` sur des faux fournisseurs scriptables."""
+    from darija_bench import providers as P
+
+    def faux_build(spec, **_):
+        item = table[spec]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    monkeypatch.setattr(P, "build", faux_build)
+    return faux_build
+
+
+def test_le_relais_remplace_un_modele_epuise(tmp_path, monkeypatch):
+    # Sur palier gratuit, un modele peut s'epuiser au tiers d'une campagne.
+    # Une liste fixe produirait alors une mesure tronquee ; le relais tire un
+    # remplacant pour atteindre quand meme la cible.
+    mort = FauxFournisseur("faux:mort", [RateLimited("epuise", exhausted=True)])
+    vif = FauxFournisseur("faux:vif")
+    _relayable(monkeypatch, {"a": mort, "b": vif})
+    issues = runner.relay(["a", "b"], _prompts(2), tmp_path / "r.jsonl",
+                          target=1, conditions=["implicite"])
+    assert issues == {"a": "quota épuisé", "b": "complet"}
+    assert vif.appels == 2
+
+
+def test_le_relais_sarrete_une_fois_la_cible_atteinte(tmp_path, monkeypatch):
+    # Ne pas depenser du quota pour des modeles dont on n'a pas besoin.
+    a, b = FauxFournisseur("faux:a"), FauxFournisseur("faux:b")
+    _relayable(monkeypatch, {"a": a, "b": b})
+    issues = runner.relay(["a", "b"], _prompts(2), tmp_path / "r.jsonl",
+                          target=1, conditions=["implicite"])
+    assert issues == {"a": "complet"}
+    assert b.appels == 0
+
+
+def test_un_candidat_inconstructible_narrete_pas_le_relais(tmp_path, monkeypatch):
+    # gemini-3.1-pro avait un quota de zero : hors d'atteinte avant meme le
+    # premier appel. C'est le cas que le relais existe pour absorber.
+    vif = FauxFournisseur("faux:vif")
+    _relayable(monkeypatch, {"a": ProviderError("modele inconnu"), "b": vif})
+    issues = runner.relay(["a", "b"], _prompts(2), tmp_path / "r.jsonl",
+                          target=1, conditions=["implicite"])
+    assert "inconnu" in issues["a"]
+    assert issues["b"] == "complet"

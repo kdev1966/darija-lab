@@ -21,7 +21,7 @@ from darija.dialect import DialectModel
 from . import prompts as prompts_mod
 from . import report as report_mod
 from .providers import ProviderError, build
-from .runner import CONDITIONS, Reply, collect, load_replies
+from .runner import CONDITIONS, Reply, collect, load_replies, relay
 
 
 def _cmd_prompts(args: argparse.Namespace) -> int:
@@ -46,18 +46,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # qu'il faut pour une mesure sous plafond de quota.
         items = items[: args.limit]
 
-    try:
-        providers = [build(spec) for spec in args.model]
-    except ProviderError as exc:
-        print(f"erreur : {exc}", file=sys.stderr)
-        return 2
-
     conditions = args.condition or list(CONDITIONS)
-    planned = len(providers) * len(conditions) * len(items)
+    vise = args.target or len(args.model)
+    planned = vise * len(conditions) * len(items)
+    mode = "relais" if args.target else "liste fixe"
     print(
-        f"{len(providers)} modele(s) x {len(conditions)} condition(s) x {len(items)} prompts "
+        f"{mode} : {vise} mesure(s) x {len(conditions)} condition(s) x {len(items)} prompts "
         f"= {planned} appels au maximum (les deja-faits sont sautes)."
     )
+    if args.target:
+        print(f"reserve de {len(args.model)} candidat(s) ; un modele epuise est remplace.")
     if not args.yes:
         answer = input("Ces appels sont factures. Continuer ? [o/N] ").strip().lower()
         if answer not in {"o", "oui", "y", "yes"}:
@@ -68,15 +66,27 @@ def _cmd_run(args: argparse.Namespace) -> int:
         state = "ERREUR" if record.error else f"{len(record.reply.split()):>4} mots"
         print(f"  {record.model}  {record.condition:<10} {record.prompt_id}  {state}")
 
+    if args.target:
+        issues = relay(
+            args.model, items, Path(args.out),
+            target=args.target, conditions=conditions,
+            resume=not args.no_resume, on_progress=progress,
+        )
+        print("\nsort des candidats :")
+        for spec, etat in issues.items():
+            print(f"  {spec:<48} {etat}")
+        return 0
+
+    try:
+        providers = [build(spec) for spec in args.model]
+    except ProviderError as exc:
+        print(f"erreur : {exc}", file=sys.stderr)
+        return 2
     made = collect(
-        providers,
-        items,
-        Path(args.out),
-        conditions=conditions,
-        resume=not args.no_resume,
-        on_progress=progress,
+        providers, items, Path(args.out),
+        conditions=conditions, resume=not args.no_resume, on_progress=progress,
     )
-    print(f"\n{made} appels effectues, ecrits dans {args.out}")
+    print(f"\n{made.calls} appels effectues, ecrits dans {args.out}")
     return 0
 
 
@@ -135,7 +145,15 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         required=True,
         metavar="SPEC",
-        help="fournisseur:modele, repetable (ex: anthropic:claude-opus-5)",
+        help="fournisseur:modele, repetable (ex: anthropic:claude-opus-5). "
+        "Avec --target, cette liste devient une reserve de candidats.",
+    )
+    p_run.add_argument(
+        "--target",
+        type=int,
+        metavar="N",
+        help="viser N mesures COMPLETES en puisant dans la reserve --model. "
+        "Un modele dont le quota s'epuise est remplace par le suivant.",
     )
     p_run.add_argument("--out", default="replies.jsonl", help="fichier de reponses")
     p_run.add_argument(

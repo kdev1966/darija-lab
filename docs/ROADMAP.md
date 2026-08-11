@@ -4,7 +4,7 @@
 rien ne la consomme. Ce document conserve l'analyse pour que la décision ne soit
 pas refaite de zéro.
 
-**État : non tranché.** Le choix appartient à Mohamed Dhia ; ce qui suit est le
+**État : non tranché.** Le choix appartient à Othman ; ce qui suit est le
 raisonnement, pas une conclusion imposée.
 
 ---

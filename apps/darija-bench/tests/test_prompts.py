@@ -37,6 +37,52 @@ def test_aucun_prompt_en_francais_ni_en_fusha():
         assert not prompt.text.strip().startswith(("Peux-tu", "Comment", "Pourquoi"))
 
 
+# --- défaut 2 : le protocole complet dépasse les plafonds gratuits ---
+
+
+def test_echantillon_garde_toujours_de_larabizi():
+    # Mesuré : le protocole complet demande 84 appels, le palier gratuit en
+    # accorde 20 par jour. Il faut donc pouvoir échantillonner — mais un
+    # tirage uniforme sur 42 prompts dont 8 en Arabizi peut n'en retenir
+    # aucun, et on perdrait la forme écrite majoritaire du tunisien sans
+    # que le rapport le signale.
+    items = prompts_mod.load()
+    for n in (4, 6, 10, 20):
+        for seed in range(5):
+            tire = prompts_mod.sample(items, n, seed=seed)
+            scripts = {p.script for p in tire}
+            assert "arabizi" in scripts, f"n={n} seed={seed} : aucun Arabizi"
+            assert "arabe" in scripts
+
+
+def test_echantillon_reproductible():
+    # Deux modèles mesurés à des jours différents — obligatoire quand le
+    # plafond est journalier — doivent voir le MÊME échantillon, sinon leur
+    # comparaison n'a aucun sens.
+    items = prompts_mod.load()
+    a = [p.id for p in prompts_mod.sample(items, 10, seed=7)]
+    b = [p.id for p in prompts_mod.sample(items, 10, seed=7)]
+    c = [p.id for p in prompts_mod.sample(items, 10, seed=8)]
+    assert a == b
+    assert a != c
+
+
+def test_echantillon_respecte_la_taille():
+    items = prompts_mod.load()
+    for n in (3, 5, 12, 33):
+        assert len(prompts_mod.sample(items, n)) == n
+
+
+def test_echantillon_plus_grand_que_le_jeu():
+    items = prompts_mod.load()
+    assert len(prompts_mod.sample(items, 999)) == len(items)
+
+
+def test_echantillon_taille_invalide():
+    with pytest.raises(ValueError, match="invalide"):
+        prompts_mod.sample(prompts_mod.load(), 0)
+
+
 def test_ecriture_inconnue_refusee(tmp_path):
     # Une écriture non reconnue passerait le scoring sans translittération et
     # produirait une ligne de rapport muette.

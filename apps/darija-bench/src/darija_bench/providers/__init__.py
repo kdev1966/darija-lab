@@ -23,6 +23,34 @@ class ProviderError(RuntimeError):
     """Échec d'appel à un fournisseur, ou refus du modèle."""
 
 
+class RateLimited(ProviderError):
+    """Le fournisseur a refusé l'appel pour cause de quota.
+
+    La distinction entre les deux cas est ce qui manquait à la première
+    campagne, et elle coûte cher : le palier gratuit de Gemini plafonne
+    ``gemini-3.6-flash`` à **20 requêtes par jour**. Traiter ce refus comme un
+    ralentissement passager a produit 62 appels condamnés d'avance, plus le
+    temps d'attente qui va avec.
+
+    Attributes:
+      retry_after: délai conseillé par le serveur, en secondes. Une attente
+        devinée serait soit trop courte — on se refait jeter — soit inutilement
+        longue ; l'API donne la valeur, on l'utilise.
+      exhausted: le quota est épuisé pour une période longue (un jour). Aucune
+        attente raisonnable ne le rouvre : il faut abandonner ce modèle pour le
+        reste de la campagne, pas réessayer.
+
+    """
+
+    def __init__(
+        self, message: str, *, retry_after: float | None = None, exhausted: bool = False
+    ) -> None:
+        """Construit l'erreur en conservant ce que le serveur a dit."""
+        super().__init__(message)
+        self.retry_after = retry_after
+        self.exhausted = exhausted
+
+
 class Provider(Protocol):
     """Ce que le runner attend d'un fournisseur."""
 

@@ -38,7 +38,12 @@ def _cmd_prompts(args: argparse.Namespace) -> int:
 def _cmd_run(args: argparse.Namespace) -> int:
     """Collecte les réponses des modèles."""
     items = prompts_mod.load()
-    if args.limit:
+    if args.sample:
+        items = prompts_mod.sample(items, args.sample, seed=args.seed)
+    elif args.limit:
+        # `--limit` prend les N premiers, donc jamais d'Arabizi : c'est un
+        # raccourci de mise au point, pas un protocole. `--sample` est ce
+        # qu'il faut pour une mesure sous plafond de quota.
         items = items[: args.limit]
 
     try:
@@ -129,7 +134,19 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument(
         "--condition", action="append", choices=sorted(CONDITIONS), help="par defaut : les deux"
     )
-    p_run.add_argument("--limit", type=int, help="n'utiliser que les N premiers prompts")
+    p_run.add_argument(
+        "--sample",
+        type=int,
+        metavar="N",
+        help="tirer N prompts, stratifies par ecriture et reproductibles "
+        "(pour tenir sous un plafond de quota)",
+    )
+    p_run.add_argument("--seed", type=int, default=0, help="graine du tirage (defaut 0)")
+    p_run.add_argument(
+        "--limit",
+        type=int,
+        help="les N premiers prompts — mise au point seulement, jamais d'arabizi",
+    )
     p_run.add_argument("--no-resume", action="store_true", help="ne pas sauter les deja-faits")
     p_run.add_argument("--yes", action="store_true", help="ne pas demander confirmation")
     p_run.set_defaults(fn=_cmd_run)

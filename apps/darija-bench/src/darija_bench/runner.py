@@ -25,12 +25,20 @@ différentes, d'où la séparation.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 from .prompts import Prompt
-from .providers import Provider, ProviderError
+from .providers import Provider, ProviderError, RateLimited
+
+#: Nombre de reprises sur un quota momentané. Deux suffisent : au-delà, ce
+#: n'est plus un pic de trafic, c'est un plafond.
+MAX_RETRIES: int = 2
+
+#: Attente de repli quand le serveur ne conseille aucun délai.
+FALLBACK_DELAY: float = 20.0
 
 #: Consignes par condition. ``None`` = aucun prompt système.
 CONDITIONS: dict[str, str | None] = {
@@ -80,6 +88,29 @@ def existing_keys(path: Path) -> set[tuple[str, str, str]]:
     return keys
 
 
+def _call(provider: Provider, prompt: str, system: str | None, *, sleep=time.sleep) -> str:
+    """Appelle un fournisseur, en réessayant les ralentissements passagers.
+
+    Un quota **épuisé** n'est pas réessayé : il remonte immédiatement pour que
+    l'appelant abandonne ce modèle. C'est ce qui manquait à la première
+    campagne, où 62 appels ont été passés contre un plafond journalier déjà
+    atteint.
+
+    Raises:
+      ProviderError: échec définitif, quota épuisé compris.
+
+    """
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            return provider.generate(prompt, system)
+        except RateLimited as exc:
+            if exc.exhausted or attempt == MAX_RETRIES:
+                raise
+            # Le serveur sait mieux que nous combien attendre.
+            sleep(exc.retry_after if exc.retry_after is not None else FALLBACK_DELAY)
+    raise AssertionError("inatteignable")  # pragma: no cover
+
+
 def collect(
     providers: Iterable[Provider],
     prompts: Iterable[Prompt],
@@ -122,24 +153,31 @@ def collect(
     prompts = list(prompts)
     with out.open("a", encoding="utf-8") as fh:
         for provider in providers:
+            # Un quota journalier épuisé condamne tous les appels restants de
+            # ce modèle. On l'abandonne au premier refus définitif au lieu de
+            # dérouler la liste entière contre un mur.
+            abandoned: str | None = None
             for condition in conditions:
                 system = CONDITIONS[condition]
                 for prompt in prompts:
                     key = (prompt.id, provider.name, condition)
                     if key in done:
                         continue
+                    if abandoned:
+                        continue
                     try:
-                        text = provider.generate(prompt.text, system)
                         record = Reply(
                             prompt_id=prompt.id,
                             model=provider.name,
                             condition=condition,
                             script=prompt.script,
-                            reply=text,
+                            reply=_call(provider, prompt.text, system),
                         )
                     except ProviderError as exc:
                         # Un échec est consigné, pas propagé : une campagne ne
                         # doit pas s'arrêter parce qu'un prompt a été refusé.
+                        if isinstance(exc, RateLimited) and exc.exhausted:
+                            abandoned = str(exc)
                         record = Reply(
                             prompt_id=prompt.id,
                             model=provider.name,
@@ -153,6 +191,17 @@ def collect(
                     calls += 1
                     if callable(on_progress):
                         on_progress(record)
+            if abandoned and callable(on_progress):
+                on_progress(
+                    Reply(
+                        prompt_id="—",
+                        model=provider.name,
+                        condition="—",
+                        script="—",
+                        reply="",
+                        error=f"quota epuise, modele abandonne : {abandoned[:120]}",
+                    )
+                )
     return calls
 
 

@@ -436,3 +436,27 @@ def test_linto_excludes_the_corpora_already_fetched_separately():
     assert not any(p.startswith("TSAC") for p in include)
     assert not any(p.startswith("QADI") for p in include)
     assert any(p.startswith("HkayetErwi") for p in include), "récit absent"
+
+
+# ------------------------------------------------------- Arabizi (biais no 2)
+def test_le_contraste_arabizi_filtre_bien_le_latin():
+    """Sans ``latin_only``, un contraste en Arabizi apprendrait l'alphabet.
+
+    C'est le biais no 2 dans l'autre sens : ``arabic_only`` empechait le modele
+    de distinguer les classes par leur ecriture ; il faut le symetrique des
+    que les deux classes sont en caracteres latins.
+    """
+    c = B.CONTRASTS["vs_moroccan_latin"]
+    assert c.latin_only and not c.arabic_only
+    assert B._latin_lines(["chnowa a7welek", "شنوة أحوالك"]) == ["chnowa a7welek"]
+
+
+def test_le_contraste_arabizi_sannonce_non_controle_en_genre():
+    """Son negatif est de la phrase traduite, TUNIZI du commentaire YouTube.
+
+    Le modele entraine dessus a donne une AUC de 1.000 pour deux mauvaises
+    raisons : des rires (``hhhh``) cote tunisien, des mots anglais residuels
+    cote marocain. Le drapeau doit rester faux pour que personne ne lise cette
+    AUC comme une mesure de dialecte.
+    """
+    assert not B.CONTRASTS["vs_moroccan_latin"].genre_controlled

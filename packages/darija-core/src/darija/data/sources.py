@@ -126,6 +126,18 @@ SOURCES: dict[str, Source] = {
              "vérifier ce qui est réellement obtenu.",
     ),
     # ------------------------------------ négatif : ce qui n'est pas tunisien
+    "mar_latin": Source(
+        key="mar_latin", role="negative", kind="hf",
+        locator="ilias-brh/english-darija-arabizi-sentence-pairs",
+        license="CC BY-NC-SA 4.0",
+        note="Marocain en écriture latine — le seul négatif d'Arabizi trouvé "
+             "sous licence déclarée. 6,7 M de mots, Arabizi authentique "
+             "(95,7 % des lignes portent des chiffres-lettres, densité 0,242 "
+             "par mot, contre 0,209 pour TUNIZI). ⚠️ **NC** : usage non "
+             "commercial, la contrainte la plus stricte du dépôt. ⚠️ Registre "
+             "non contrôlé : 23 mots par ligne (phrases traduites) contre 8 "
+             "pour TUNIZI (commentaires YouTube).",
+    ),
     "omcd": Source(
         key="omcd", role="negative", kind="url",
         locator=" ".join(

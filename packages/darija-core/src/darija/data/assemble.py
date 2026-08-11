@@ -70,6 +70,10 @@ class Contrast:
         l'entraînement. Sans ce filtre, ``مغرب`` et ``تونسي`` figurent parmi les
         traits les plus lourds : le modèle classe alors le sujet autant que la
         langue.
+      latin_only: le symétrique, pour les contrastes en Arabizi. Sans lui, un
+        contraste en écriture latine laisserait entrer des lignes en alphabet
+        arabe et le modèle apprendrait l'alphabet — le biais nº 2, dans
+        l'autre sens.
       arabic_only: ne garder que les lignes majoritairement en alphabet arabe.
         Indispensable dès qu'une classe contient de l'Arabizi et pas l'autre :
         TUNIZI est à 99,9 % en caractères latins et OMCD à 0 %, donc sans ce
@@ -82,6 +86,7 @@ class Contrast:
     positives: list[str] | None = None
     genre_controlled: bool = False
     arabic_only: bool = False
+    latin_only: bool = False
     strip_entities: bool = False
 
 
@@ -162,6 +167,18 @@ CONTRASTS: dict[str, Contrast] = {
         negatives=["omcd", "mac", "dz", "ary"], positives=["tsac", "tunizi", "arbml_tn", "linto"],
         genre_controlled=True, arabic_only=True, strip_entities=True,
     ),
+    "vs_moroccan_latin": Contrast(
+        "tunisien contre marocain, en Arabizi des deux côtés — le premier "
+        "contraste qui mesure l'écriture latine au lieu de la traduire",
+        negatives=["mar_latin"], positives=["tunizi"],
+        latin_only=True, strip_entities=True,
+        # `genre_controlled` reste FAUX, et il faut le lire comme un
+        # avertissement : TUNIZI est du commentaire YouTube, le négatif de la
+        # phrase traduite. Le découpage en blocs de 60 mots efface l'écart de
+        # longueur, pas celui de registre. Une AUC élevée ici mesure donc
+        # peut-être le registre autant que le dialecte — exactement le biais
+        # nº 1. À valider provenance par provenance, jamais sur l'AUC seule.
+    ),
     "vs_msa": Contrast("tunisien contre arabe standard", negatives=["ar"]),
     "vs_egyptian": Contrast("tunisien contre égyptien", negatives=["arz"]),
     "vs_maghrebi": Contrast(
@@ -180,12 +197,32 @@ CONTRASTS: dict[str, Contrast] = {
 #: sans laisser passer une ligne entière d'Arabizi.
 MIN_ARABIC: float = 0.85
 
+#: Part minimale de caractères latins pour ``latin_only``. Plus bas que
+#: :data:`MIN_ARABIC` : l'Arabizi note des consonnes par des chiffres
+#: (``3`` pour ع, ``7`` pour ح, ``9`` pour ق), que ``script_ratio`` classe
+#: hors alphabet. Mesuré sur TUNIZI : part latine médiane de 0,96, mais la
+#: queue descend bien plus bas sur les lignes riches en chiffres.
+MIN_LATIN: float = 0.60
+
 
 def _arabic_lines(lines: Sequence[str]) -> list[str]:
     """Ne garde que les lignes majoritairement en alphabet arabe."""
     from ..normalize import script_ratio  # noqa: PLC0415
 
     return [x for x in lines if script_ratio(x)["arabic"] >= MIN_ARABIC]
+
+
+def _latin_lines(lines: Sequence[str]) -> list[str]:
+    """Ne garde que les lignes majoritairement en alphabet latin.
+
+    Le pendant de :func:`_arabic_lines`, pour les contrastes en Arabizi. Le
+    seuil est plus bas parce que l'Arabizi mêle des chiffres-lettres — ``3``,
+    ``7``, ``9`` — qui ne comptent pas comme latins alors qu'ils portent une
+    part du signal.
+    """
+    from ..normalize import script_ratio  # noqa: PLC0415
+
+    return [x for x in lines if script_ratio(x)["latin"] >= MIN_LATIN]
 
 
 def chunk(lines: Sequence[str], target_words: int = TARGET_WORDS) -> list[str]:
@@ -291,9 +328,10 @@ def build(
         pos_raw = {k: [clean_for_training(x) for x in v] for k, v in pos_raw.items()}
         neg_raw = {k: [clean_for_training(x) for x in v] for k, v in neg_raw.items()}
 
-    if spec.arabic_only:
-        pos_raw = {k: _arabic_lines(v) for k, v in pos_raw.items()}
-        neg_raw = {k: _arabic_lines(v) for k, v in neg_raw.items()}
+    if spec.arabic_only or spec.latin_only:
+        keep = _arabic_lines if spec.arabic_only else _latin_lines
+        pos_raw = {k: keep(v) for k, v in pos_raw.items()}
+        neg_raw = {k: keep(v) for k, v in neg_raw.items()}
         pos_raw = {k: v for k, v in pos_raw.items() if v}
         neg_raw = {k: v for k, v in neg_raw.items() if v}
 

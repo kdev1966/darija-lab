@@ -15,6 +15,8 @@ dependencies = ["darija-core"]
 anthropic = ["anthropic>=0.40"]
 openai = ["openai>=1.40"]
 google = ["google-genai>=0.3"]
+# OpenRouter parle Chat Completions : même SDK, autre hôte.
+openrouter = ["openai>=1.40"]
 dev = ["pytest", "ruff"]
 
 [project.scripts]

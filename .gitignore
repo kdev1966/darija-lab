@@ -20,3 +20,6 @@ models/
 .DS_Store
 **/.DS_Store
 .env
+
+# clés d'API des applications
+**/.env

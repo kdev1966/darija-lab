@@ -67,6 +67,7 @@ REGISTRY: dict[str, tuple[str, str | None]] = {
     "anthropic": ("darija_bench.providers.anthropic_api", "claude-opus-5"),
     "openai": ("darija_bench.providers.openai_api", None),
     "google": ("darija_bench.providers.google_api", None),
+    "openrouter": ("darija_bench.providers.openrouter_api", None),
 }
 
 

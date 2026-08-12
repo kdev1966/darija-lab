@@ -1,5 +1,7 @@
 """Tests du module darija.data. Aucun accès réseau."""
 
+from pathlib import Path
+
 import pytest
 
 from darija.data import assemble as B
@@ -157,8 +159,11 @@ def test_genre_controlled_contrasts_are_fully_controlled():
     # projette les deux classes dans l'alphabet que l'ecriture latine sait
     # exprimer, pour scorer du texte translittere. Le controle de genre y est
     # identique, donc il appartient a cette liste.
+    # `vs_maghreb_llm` l'est aussi : il ajoute un negatif de prose (l'arabe
+    # standard des LLM) a cote de `ary`, qui est deja de la prose. Le controle
+    # de genre du contraste de reference n'en est pas affecte.
     assert controlled == {"vs_moroccan_yt", "vs_moroccan_tw", "vs_algerian",
-                          "vs_maghreb", "vs_maghreb_arabizi"}
+                          "vs_maghreb", "vs_maghreb_arabizi", "vs_maghreb_llm"}
     for name in controlled:
         c = B.CONTRASTS[name]
         assert c.positives, f"{name}: positifs non restreints"
@@ -174,21 +179,36 @@ def test_le_negatif_adversarial_est_produit_localement():
     le tronquerait, donc un `--force` detruirait le corpus au lieu de le
     regenerer.
     """
-    src = S.SOURCES["llm_fusha"]
-    assert src.kind == "local" and src.role == "negative"
+    for cle in ("llm_fusha", "llm_fusha_val"):
+        src = S.SOURCES[cle]
+        assert src.kind == "local" and src.role == "negative"
 
 
-def test_le_negatif_adversarial_nentraine_aucun_modele():
-    """Il juge, il n'alimente pas — et un corpus ne peut pas faire les deux.
+def test_la_part_de_validation_nentraine_aucun_modele():
+    """Elle juge, elle n'alimente pas — un corpus ne peut pas faire les deux.
 
-    L'employer a l'entrainement a ete tente : 0,5 % de la classe negative apres
-    equilibrage, gain nul hors des blocs vus (66,7 % -> 60,0 % sur la part
-    tenue a l'ecart, contre 37,8 % -> 16,2 % sur ce qui avait ete vu). C'est le
-    seul echantillon existant de ce registre ; l'y remettre le contaminerait
-    definitivement.
+    Le premier essai a mesure le gain sur les blocs vus a l'entrainement et
+    annonce 8,7 % -> 4,2 %. La mesure honnete, hors de ces blocs, donnait
+    66,7 % -> 60,0 %. D'ou ce partage : `llm_fusha` entraine, `llm_fusha_val`
+    juge, et rien ne traverse.
     """
     for nom, c in B.CONTRASTS.items():
-        assert "llm_fusha" not in c.negatives, f"{nom} contamine le jeu de validation"
+        assert "llm_fusha_val" not in c.negatives, f"{nom} contamine le jeu de validation"
+
+
+def test_le_partage_du_negatif_adversarial_se_fait_par_prompt():
+    """16 reponses d'une meme consigne sont des quasi-doublons.
+
+    Les repartir des deux cotes ferait mesurer la memorisation. Aucun bloc de
+    validation ne doit donc reapparaitre dans la part d'entrainement.
+    """
+    raw = Path(__file__).resolve().parents[1] / "data/raw"
+    tr, val = raw / "llm_fusha.txt", raw / "llm_fusha_val.txt"
+    if not (tr.exists() and val.exists()):
+        pytest.skip("corpus absent (voir apps/darija-bench/notebooks/)")
+    vus = set(tr.read_text(encoding="utf-8").splitlines())
+    communs = [ligne for ligne in val.read_text(encoding="utf-8").splitlines() if ligne in vus]
+    assert not communs, f"{len(communs)} blocs des deux cotes"
 
 
 def test_only_the_reference_contrast_mixes_registers():

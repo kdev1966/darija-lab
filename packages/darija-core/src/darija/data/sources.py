@@ -143,18 +143,30 @@ SOURCES: dict[str, Source] = {
         key="llm_fusha", role="negative", kind="local",
         locator="produit par apps/darija-bench/notebooks/colab_negatif_adversarial.ipynb",
         license="sorties de modèles, produites par ce dépôt",
-        note="**Jeu de validation, PAS un négatif d'entraînement.** De l'arabe "
-             "écrit par des LLM sur des sujets du quotidien — le registre exact "
-             "du biais nº 7, que ni `ar` (encyclopédique) ni `ary` (marocain) "
-             "ne représentent. Mesuré : score médian 0,806 contre 0,789 pour "
-             "`ar` et 0,924 pour `linto`, et **8,7 % passent le seuil** du "
-             "modèle de référence.\n"
-             "L'employer à l'entraînement a été tenté et a échoué : 0,5 % de la "
-             "classe négative après équilibrage, gain nul hors des blocs vus. "
-             "Il en faudrait ~1800. Et surtout, un corpus ne peut pas à la fois "
-             "entraîner et juger : c'est le seul échantillon de ce registre, "
-             "donc sa place est du côté du juge.\n"
-             "N'apparaît dans aucun contraste, et c'est délibéré.",
+        note="Négatif adversarial : de l'arabe standard écrit par un LLM "
+             "(Qwen2.5-7B, T4 gratuit) sur des sujets du quotidien — le registre "
+             "exact du biais nº 7, que ni `ar` (encyclopédique) ni `ary` "
+             "(marocain) ne représentent.\n"
+             "**631 blocs, 26 prompts sur 34.** Les 8 autres sont "
+             "`llm_fusha_val` et ne servent qu'à juger. Le partage est fait par "
+             "prompt, pas par réponse : 16 réponses tirées d'une même consigne "
+             "sont des quasi-doublons, les répartir des deux côtés mesurerait la "
+             "mémorisation plutôt que la généralisation.\n"
+             "Nettoyage obligatoire, voir `darija_bench.adversarial` : le modèle "
+             "ré-émet parfois la consigne — **écrite en tunisien** — après un "
+             "jeton de gabarit.",
+    ),
+    "llm_fusha_val": Source(
+        key="llm_fusha_val", role="negative", kind="local",
+        locator="même carnet, les 8 prompts tenus à l'écart",
+        license="sorties de modèles, produites par ce dépôt",
+        note="**Jeu de validation. N'apparaît dans aucun contraste, et c'est "
+             "délibéré** — un test le verrouille. C'est le seul témoin du "
+             "registre qui a révélé le biais nº 7 ; s'il entrait à "
+             "l'entraînement, plus rien ne mesurerait le progrès sur ce "
+             "registre.\n"
+             "224 blocs. Verdict mesuré sur lui seul : le modèle de référence "
+             "en classe **4,9 % comme tunisiens**, `vs_maghreb_llm` **0,0 %**.",
     ),
     "omcd": Source(
         key="omcd", role="negative", kind="url",

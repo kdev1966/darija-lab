@@ -98,6 +98,37 @@ coûte 10 à 37 points et ne gagne rien sur les contre-exemples, que le
 classifieur seul rejette déjà à 99,3-100 %. Il est donc appliqué dans le banc
 (sorties de LLM) et optionnel dans le tri (`--strict`).
 
+**Le septième biais est désormais attaqué à la racine, pas seulement rattrapé
+par une règle.** Idée empruntée à `tuni-folk-gemini` : si le classifieur trébuche
+sur la fusha des LLM, il faut la lui montrer comme négatif. Un T4 gratuit sur
+Colab produit ce corpus sans clé d'API — 544 réponses de Qwen2.5-7B sur les
+sujets du banc, 855 blocs. Le contraste `vs_maghreb_llm` en résulte.
+
+Mesuré **sur les 8 prompts jamais vus à l'entraînement** :
+
+| | référence | `vs_maghreb_llm` |
+|---|---|---|
+| fusha de LLM classée tunisienne | 4,9 % | **0,0 %** |
+| récit tunisien humain reconnu | 94,0 % | 94,2 % |
+| pire provenance tunisienne | 96,1 % | 96,7 % |
+| algérien mal classé | 5,4 % | **7,6 %** |
+| marocain (`mac`) mal classé | 0,8 % | **1,8 %** |
+
+Le gain sur le registre visé est net et le tunisien ne perd rien ; le coût est
+sur le voisinage maghrébin, et il est réel. `vs_maghreb` reste donc la
+référence tant que ce compromis n'est pas arbitré.
+
+**Deux pièges à ne pas refaire de ce corpus** — tous deux documentés dans
+`darija_bench.adversarial` :
+1. Le modèle **ré-émet parfois la consigne**, qui est écrite *en tunisien*,
+   après un jeton `user`. Sans troncature, du positif authentique entre dans la
+   classe négative.
+2. Le partage entraînement / validation se fait **par prompt**. Seize réponses
+   d'une même consigne sont des quasi-doublons : les répartir au hasard fait
+   mesurer la mémorisation. C'est exactement l'erreur du premier essai, qui a
+   fait annoncer « 8,7 % → 4,2 % » quand la mesure hors des blocs vus donnait
+   « 66,7 % → 60,0 % ».
+
 **Une AUC élevée ne prouve rien ici.** Toujours valider source par source :
 
 ```bash

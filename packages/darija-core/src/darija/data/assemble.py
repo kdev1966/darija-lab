@@ -187,6 +187,18 @@ CONTRASTS: dict[str, Contrast] = {
         # translittération lui retire à l'usage — et 24 points de TUNIZI se
         # perdent dans l'écart.
     ),
+    "vs_maghreb_llm": Contrast(
+        "le contraste de référence, plus de l'arabe standard écrit par un LLM "
+        "sur des sujets du quotidien — le registre du biais nº 7",
+        negatives=["omcd", "mac", "dz", "ary", "llm_fusha"],
+        positives=["tsac", "tunizi", "arbml_tn", "linto"],
+        genre_controlled=True, arabic_only=True, strip_entities=True,
+        # Un premier essai avec 141 blocs n'avait rien donné : après équilibrage
+        # ils pesaient 0,5 % de la classe négative. Le gain annoncé alors venait
+        # d'une mesure faite sur les blocs vus à l'entraînement — une erreur, et
+        # la raison pour laquelle `llm_fusha_val` existe désormais.
+        # `llm_fusha_val` n'est PAS ici : c'est le juge, il ne s'entraîne pas.
+    ),
     "vs_moroccan_latin": Contrast(
         "tunisien contre marocain, en Arabizi des deux côtés — le premier "
         "contraste qui mesure l'écriture latine au lieu de la traduire",

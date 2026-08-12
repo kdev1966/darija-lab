@@ -133,7 +133,7 @@ def _cmd_report(args: argparse.Namespace) -> int:
 
 def _cmd_triage(args: argparse.Namespace) -> int:
     """Trie une pile de textes."""
-    from .triage import judge, read_documents, summarise  # noqa: PLC0415
+    from .triage import group_documents, judge, read_documents, summarise  # noqa: PLC0415
 
     model = DialectModel.load(args.dialect_model)
     try:
@@ -141,10 +141,14 @@ def _cmd_triage(args: argparse.Namespace) -> int:
     except (FileNotFoundError, ValueError) as exc:
         print(f"erreur : {exc}", file=sys.stderr)
         return 2
+    if args.group:
+        docs = list(group_documents(iter(docs), args.group))
     if args.limit:
         docs = docs[: args.limit]
 
-    verdicts = [judge(texte, model, ident=ident) for ident, texte in docs]
+    verdicts = [
+        judge(texte, model, ident=ident, strict=args.strict) for ident, texte in docs
+    ]
     print(summarise(verdicts))
 
     if args.out:
@@ -235,6 +239,23 @@ def main(argv: list[str] | None = None) -> int:
         "--dialect-model", required=True, help="chemin du modele .json.gz de darija-core"
     )
     p_triage.add_argument("--out", help="ecrire un verdict par document, en jsonl")
+    p_triage.add_argument(
+        "--group",
+        type=int,
+        nargs="?",
+        const=60,
+        metavar="N",
+        help="agreger les fragments consecutifs en unites de N mots (defaut 60). "
+        "Pour les corpus faits de lignes courtes, ou 94 %% ressortent indecidables. "
+        "Le verdict porte alors sur le corpus, pas sur un item.",
+    )
+    p_triage.add_argument(
+        "--strict",
+        action="store_true",
+        help="exiger aussi un marqueur discriminant. Coute 10 a 37 points sur du "
+        "texte humain sans rien gagner sur les contre-exemples : a reserver aux "
+        "piles soupconnees de contenir du texte genere.",
+    )
     p_triage.add_argument("--limit", type=int, help="n'examiner que les N premiers documents")
     p_triage.set_defaults(fn=_cmd_triage)
 

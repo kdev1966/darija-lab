@@ -131,3 +131,23 @@ def test_le_rendu_signale_la_translitteration():
         Verdict("a", 100, 2, "tunisien", 0.9, 0.8, 1.0, 3, transliterated=True),
     ])
     assert "translitteres" in texte and "approximative" in texte
+
+
+def test_le_filtre_de_marqueurs_nest_pas_applique_par_defaut():
+    """Il coute 10 a 37 points sur du texte humain et ne gagne rien sur les negatifs.
+
+    Mesure sur les corpus du depot, part des blocs de 60 mots reconnus :
+    linto 93,0 % -> 83,0 %, arbml_tn 85,9 % -> 56,6 %, tsac 86,8 % -> 49,8 %.
+    Les contre-exemples, eux, restent a 0-0,7 % avec ou sans. Le filtre visait
+    la fusha CONVERSATIONNELLE, propre aux sorties de LLM ; un corpus de
+    tweets tunisiens n'en contient pas.
+    """
+    sans_marqueur = "الطقس اليوم جميل و الشمس طالعة و الناس خرجوا " * 6
+    v = judge(sans_marqueur, _FauxModele(0.95))
+    assert v.n_markers == 0
+    assert v.verdict == "tunisien", "le classifieur seul doit suffire par defaut"
+
+
+def test_strict_retablit_le_filtre():
+    sans_marqueur = "الطقس اليوم جميل و الشمس طالعة و الناس خرجوا " * 6
+    assert judge(sans_marqueur, _FauxModele(0.95), strict=True).verdict == "autre"

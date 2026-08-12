@@ -10,6 +10,26 @@ Quiconque construit un corpus tunisien doit séparer le tunisien du marocain,
 de l'algérien et de la fusha dans une pile scrapée. Rien d'autre ne le fait
 pour le tunisien.
 
+**Le filtre de marqueurs n'est pas appliqué par défaut ici**, contrairement au
+banc. Mesuré sur les corpus du dépôt, part des blocs de 60 mots reconnus :
+
+===========  ==================  =============  ==============
+corpus       classifieur seul    + marqueurs    coût du filtre
+===========  ==================  =============  ==============
+``linto``    93,0 %              83,0 %         10,0 %
+``arbml_tn`` 85,9 %              56,6 %         29,2 %
+``tsac``     86,8 %              49,8 %         37,0 %
+négatifs     0 – 0,7 %           0 – 0,3 %      ~ 0
+===========  ==================  =============  ==============
+
+Le filtre coûte jusqu'à 37 points sur le tunisien et ne gagne **rien** sur les
+contre-exemples : le classifieur seul les rejette déjà à 99,3-100 %. Il avait
+été ajouté contre la fusha *conversationnelle*, un défaut propre aux sorties de
+LLM (biais nº 7) — or un corpus de tweets tunisiens n'en contient pas.
+
+``--strict`` le rétablit, pour trier une pile dont on soupçonne qu'elle
+contient des textes générés.
+
 **Un document n'est pas un bloc.** Les repères et le seuil ont été établis sur
 des blocs d'environ 60 mots ; un texte long mesuré d'un seul tenant rend une
 moyenne qui lisse ses variations. Chaque document est donc découpé, et son
@@ -113,12 +133,54 @@ def read_documents(path: Path, field: str = "text") -> Iterator[tuple[str, str]]
             yield str(i), line
 
 
-def judge(text: str, model: DialectModel, *, ident: str = "") -> Verdict:
+def group_documents(
+    docs: Iterator[tuple[str, str]], target: int = 60
+) -> Iterator[tuple[str, str]]:
+    """Agrège des fragments consécutifs en unités mesurables.
+
+    Beaucoup de corpus sont des piles de fragments — une ligne par tweet ou
+    par commentaire — de huit à trente mots. Le classifieur en exige
+    vingt-cinq : jugés un par un, 94 % de ces corpus ressortent
+    ``indecidable``, et le tri ne dit rien.
+
+    Grouper reproduit ce que fait déjà l'entraînement (``assemble.chunk``) :
+    on mesure la **variété de langue du corpus**, pas chaque item.
+
+    **Une unité groupée n'est donc pas un document.** Elle mêle des auteurs et
+    des sujets différents. Le verdict porte sur le corpus, jamais sur un item
+    en particulier — ne pas s'en servir pour retirer une ligne précise.
+    """
+    tampon: list[str] = []
+    debut = ""
+    mots = 0
+    for ident, texte in docs:
+        if not tampon:
+            debut = ident
+        tampon.append(texte)
+        mots += len(texte.split())
+        if mots >= target:
+            yield f"{debut}+{len(tampon)}", "\n".join(tampon)
+            tampon, mots = [], 0
+    if tampon and mots >= target // 2:
+        yield f"{debut}+{len(tampon)}", "\n".join(tampon)
+
+
+def judge(
+    text: str, model: DialectModel, *, ident: str = "", strict: bool = False
+) -> Verdict:
     """Trie un document.
+
+    Args:
+      text: le document.
+      model: le classifieur de dialecte.
+      ident: identifiant reporté tel quel.
+      strict: exiger aussi un marqueur discriminant. Faux par défaut — voir
+        le module pour ce que ce filtre coûte sur du texte humain.
 
     ``indecidable`` n'est pas un rejet : c'est un document trop court pour que
     le classifieur se prononce. Le confondre avec un rejet fausserait tout
     décompte — un texte bref n'est pas un texte étranger.
+
     """
     # L'écriture latine passe par la translittération, comme partout ailleurs
     # dans l'application. L'oublier envoyait de l'Arabizi brut au classifieur,
@@ -134,7 +196,7 @@ def judge(text: str, model: DialectModel, *, ident: str = "") -> Verdict:
     median = statistics.median(scores)
     distinct = len({m.marker for m in markers.find(scored)} & markers.DISCRIMINANT)
     tunisien = [s for s in scores if s >= model.threshold]
-    ok = median >= model.threshold and distinct >= MIN_DISTINCT_MARKERS
+    ok = median >= model.threshold and (not strict or distinct >= MIN_DISTINCT_MARKERS)
     return Verdict(
         ident=ident,
         n_words=n_words,

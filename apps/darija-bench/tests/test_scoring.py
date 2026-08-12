@@ -80,10 +80,16 @@ def test_la_fusha_conversationnelle_ne_passe_pas(model):
     # terrain (432 blocs de récit tunisien authentique) a montré qu'exiger 2
     # rejetait 37 % de la langue à reconnaître. Voir MIN_DISTINCT_MARKERS et
     # tests/test_validation_narrative.py.
+    #
+    # ⚠️ Le classifieur rejette DESORMAIS ce texte tout seul, et l'assertion
+    # `above_classifier` a donc ete retiree — elle verrouillait la faiblesse,
+    # pas la garantie. Deux corrections l'ont apportee : le negatif adversarial
+    # (519 blocs de fusha ecrite par un LLM) et la recuperation du corpus LinTO
+    # d'origine, dont la prose formelle tunisienne apprend ou passe la
+    # frontiere. Ce qui compte reste le verdict, et il ne doit jamais changer.
     verdict = _verdict(FUSHA, model)
     assert verdict.scorable
-    assert verdict.above_classifier, "le classifieur seul laisse passer ce texte"
-    assert verdict.n_markers == 0
+    assert verdict.n_markers == 0, "la fusha n'emploie aucun marqueur discriminant"
     assert not verdict.is_tunisian, (verdict.score, verdict.n_markers)
 
 

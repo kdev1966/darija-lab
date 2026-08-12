@@ -162,8 +162,11 @@ def test_genre_controlled_contrasts_are_fully_controlled():
     # `vs_maghreb_llm` l'est aussi : il ajoute un negatif de prose (l'arabe
     # standard des LLM) a cote de `ary`, qui est deja de la prose. Le controle
     # de genre du contraste de reference n'en est pas affecte.
+    # `vs_maghreb_fusha` ajoute la fusha encyclopedique DOSEE a 10 % : versee
+    # en entier elle porte le marocain a 11 % et l'algerien a 15,8 %.
     assert controlled == {"vs_moroccan_yt", "vs_moroccan_tw", "vs_algerian",
-                          "vs_maghreb", "vs_maghreb_arabizi", "vs_maghreb_llm"}
+                          "vs_maghreb", "vs_maghreb_arabizi", "vs_maghreb_llm",
+                          "vs_maghreb_fusha"}
     for name in controlled:
         c = B.CONTRASTS[name]
         assert c.positives, f"{name}: positifs non restreints"
@@ -452,14 +455,24 @@ def test_register_warning_is_documented():
 
 
 # ------------------------------------------------- agrégat LinTO (biais nº 5)
-def test_linto_points_at_a_live_repository():
-    """L'ancien dépôt a disparu, rendant le modèle de référence irreproductible.
+def test_linto_lit_l_archive_locale_et_le_dit():
+    """Le depot vivant ne remplace pas celui qui a disparu, c'est mesure.
 
-    `darija data fetch --only linto` échouait sur toute machine neuve. LinTO
-    étant la principale source positive, plus personne ne pouvait reconstruire
-    le classifieur.
+    Ce test exigeait auparavant un depot HF vivant, pour que `fetch` marche sur
+    une machine neuve. L'intention etait juste et le cout a ete paye : entraine
+    sur `linagora/Tunisian_Derja_Dataset`, le modele passe de 0,4 % a **45,6 %**
+    de faux positifs sur la fusha. L'ancien depot apportait onze sous-corpus
+    absents du nouveau, dont de la prose formelle tunisienne.
+
+    ⚠️ CONTREPARTIE ASSUMEE : `fetch` n'est plus reproductible ailleurs. Le
+    corpus n'existe qu'ici, sous `data/archives/linto-origine`, recupere du
+    cache HF apres qu'un `--force` a ecrase le corpus derive. La note de la
+    source doit le dire, sinon quelqu'un croira a un chemin par accident.
     """
-    assert S.SOURCES["linto"].locator == "linagora/Tunisian_Derja_Dataset"
+    src = S.SOURCES["linto"]
+    assert src.locator == "data/archives/linto-origine"
+    assert "archive" in src.note.lower() or "archive" in src.note
+    assert "seule copie" in src.note, "le caractere irremplacable doit etre ecrit"
 
 
 def test_linto_declares_share_alike():
@@ -635,3 +648,27 @@ def test_une_source_sans_part_declaree_garde_le_defaut():
     a = B._capped(raw, B.TARGET_WORDS, random.Random(0))
     b = B._capped(raw, B.TARGET_WORDS, random.Random(0), {"absente": 0.1})
     assert len(a) == len(b)
+
+
+def test_la_fusha_encyclopedique_est_dosee_jamais_versee_en_entier():
+    """Verse en entier, `ar` casse ce qu'il est cense reparer.
+
+    Mesure, avec `llm_fusha` dans les deux cas : a 10 %, `ar` tombe a 1,1 % de
+    faux positifs pour un marocain a 1,6 %. Sans dosage — donc a 50 %, le
+    plafond par defaut — le marocain monte a 11,0 % et l'algerien a 15,8 %.
+    """
+    c = B.CONTRASTS["vs_maghreb_fusha"]
+    assert "ar" in c.negatives
+    assert c.shares.get("ar") == 0.10, "la fusha encyclopedique doit rester dosee"
+    assert "llm_fusha" in c.negatives, "le dosage seul ne suffit pas au registre des LLM"
+
+
+def test_le_negatif_adversarial_est_dans_la_reference():
+    """519 blocs produits sur un T4 gratuit battent Wikipedia dose.
+
+    fusha des LLM 94,2 -> 15,6 %, marocain 1,6 -> 0,8 %, algerien 4,2 -> 4,8 %,
+    et le recit humain reste a 93,3 %. La fusha encyclopedique dosee a 10 %
+    fait moins bien partout et coute 2,6 points de recit.
+    """
+    assert "llm_fusha" in B.CONTRASTS["vs_maghreb_llm"].negatives
+    assert "llm_fusha_val" not in B.CONTRASTS["vs_maghreb_llm"].negatives

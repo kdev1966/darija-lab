@@ -23,3 +23,7 @@ models/
 
 # clés d'API des applications
 **/.env
+
+# 114 Mo : la seule copie du depot LinTO d origine, disparu de Hugging Face.
+# Recuperee du cache HF apres qu un `fetch --force` a ecrase le corpus local.
+data/archives/

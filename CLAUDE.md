@@ -307,12 +307,52 @@ jamais vues.
 
 ---
 
+## ⛔ Deux règles écrites après les avoir enfreintes
+
+Elles ont coûté une journée entière, et aucune des deux n'est une subtilité.
+
+### 1. Copier avant d'écraser. `data/raw/` et `models/` sont gitignorés — git ne rattrapera rien.
+
+Un `darija data fetch --force linto` a été lancé pour corriger une inflation de
+**1,3 point** sur une mesure. Il a écrasé la seule copie d'un corpus dont le
+dépôt d'origine avait disparu de Hugging Face, et avec elle un modèle qui
+rejetait la fusha à 0,4 %. Il est remonté à 45,6 %.
+
+L'avertissement était écrit — « le régénérer rééchantillonnera les 80 000
+lignes et donnera un modèle différent » — une heure avant l'exécution. Le savoir
+ne suffit pas : il faut copier.
+
+```bash
+cp -a data/raw data/raw.avant && cp -a models models.avant   # dix secondes
+```
+
+Le corpus a fini par être retrouvé dans le cache Hugging Face et il est
+désormais archivé sous `data/archives/linto-origine`. **Cette archive est la
+seule copie au monde.** Ne pas la supprimer, ne pas compter sur le cache HF.
+
+### 2. Une mesure qui décide d'un modèle passe par `build` et `validate`, jamais par un script jetable.
+
+Trois conclusions fausses en une journée, toutes du même genre : le banc d'essai
+approximait le pipeline, et l'écart n'était visible qu'à la livraison.
+
+| ce que le script faisait | ce que `build` fait | conséquence |
+|---|---|---|
+| `dz` sur 81 lignes brutes | 354 blocs de 60 mots | « aucun coût » — faux |
+| `ar` + `ar_source` mélangés | 96,8 % venait d'`ar_source` | mauvais registre dosé |
+| 519 blocs injectés | 389 après découpage train/test | 15,6 % annoncé, 30,1 % livré |
+
+Un balayage exploratoire reste utile pour **cartographier**, à condition de
+réutiliser les fonctions du paquet (`build`, `_capped`, `score_by_source`) et de
+confirmer par `darija data validate` avant d'annoncer quoi que ce soit.
+
+---
+
 ## Conventions
 
 - Python ≥ 3.11, `ruff` avec docstrings obligatoires (`D`), ligne à 100.
 - Tests : un test doit dire **pourquoi** la règle existe, pas seulement la
   vérifier. Les tests de régression citent la mesure qui les a motivés.
-- `data/raw/` et `models/` sont gitignorés (23 Mo de corpus téléchargés).
+- `data/raw/`, `models/` et `data/archives/` sont gitignorés.
 - Ne jamais annoncer une performance sur la seule AUC interne.
 
 ---

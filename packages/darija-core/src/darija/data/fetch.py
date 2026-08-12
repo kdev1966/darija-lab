@@ -157,6 +157,15 @@ def _reservoir(lines: Iterator[str], k: int, seed: int = 0) -> list[str]:
 
 
 def _iter_hf(src: Source, min_words: int, max_lines: int | None) -> Iterator[str]:
+    # Un `locator` designant un repertoire existant est une ARCHIVE LOCALE.
+    # C'est le seul moyen de relire un depot retire de Hugging Face : celui de
+    # LinTO a disparu, et il n'en subsistait qu'une copie dans le cache HF de
+    # cette machine, apres qu'un `fetch --force` a ecrase le corpus derive.
+    racine = Path(src.locator)
+    if racine.is_dir():
+        yield from _iter_archive(racine, src, min_words, max_lines)
+        return
+
     (HfApi, hf_hub_download), pq = _require_hf()
     files = HfApi().list_repo_files(src.locator, repo_type="dataset")
     picked = [f for f in files if f.lower().endswith(_HF_EXTS)]
@@ -177,6 +186,41 @@ def _iter_hf(src: Source, min_words: int, max_lines: int | None) -> Iterator[str
         yield from all_lines()
     else:
         # Échantillon uniforme sur tout le dépôt, jamais une troncature en tête.
+        yield from _reservoir(all_lines(), max_lines)
+
+
+def _iter_archive(
+    racine: Path, src: Source, min_words: int, max_lines: int | None
+) -> Iterator[str]:
+    """Relit une copie locale d'un depot, meme retire de Hugging Face.
+
+    Args:
+      racine: repertoire de l'archive.
+      src: la source, pour son filtre ``include``.
+      min_words: seuil de rejet des lignes trop courtes.
+      max_lines: taille de l'echantillon par reservoir. ``None`` = tout lire.
+
+    Yields:
+      Les lignes nettoyees, comme le ferait un `fetch` distant.
+
+    """
+    _, pq = _require_hf()
+    fichiers = [f for f in racine.rglob("*") if f.suffix.lower() in _HF_EXTS]
+    if src.include:
+        # Les chemins d'archive portent un prefixe (`data/`) que le depot
+        # distant n'a pas : on compare sur le nom du sous-corpus.
+        fichiers = [f for f in fichiers if f.parent.name + "/" in src.include]
+    fichiers.sort(key=lambda f: (_HF_EXTS.index(f.suffix.lower()), str(f)))
+
+    def all_lines() -> Iterator[str]:
+        for chemin in fichiers:
+            for line in _iter_hf_file(chemin, pq):
+                if cleaned := _clean(line, min_words):
+                    yield cleaned
+
+    if max_lines is None:
+        yield from all_lines()
+    else:
         yield from _reservoir(all_lines(), max_lines)
 
 

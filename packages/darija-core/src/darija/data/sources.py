@@ -77,17 +77,24 @@ SOURCES: dict[str, Source] = {
     # ------------------------------------------------ positif : le tunisien
     "linto": Source(
         key="linto", role="positive", kind="hf",
-        # L'ancien dépôt `linagora/linto-dataset-text-ar-tn` a disparu : le
-        # `fetch` échouait donc sur toute machine neuve, rendant le modèle de
-        # référence irreproductible. Le dépôt vivant agrège dix-sept
-        # sous-corpus, d'où le filtre ci-dessous.
-        locator="linagora/Tunisian_Derja_Dataset",
+        # ⚠️ ARCHIVE LOCALE, et c'est délibéré. Le dépôt d'origine
+        # `linagora/linto-dataset-text-ar-tn` a disparu de Hugging Face ; il
+        # n'en subsiste qu'une copie, récupérée du cache HF de cette machine
+        # après qu'un `fetch --force` a écrasé le corpus dérivé.
+        #
+        # Le dépôt vivant `linagora/Tunisian_Derja_Dataset` ne le remplace pas :
+        # entraîné dessus, le modèle passe de 0,4 % à **45,6 %** de faux
+        # positifs sur la fusha. L'ancien apportait onze sous-corpus absents du
+        # nouveau — `BRAD`, `TunHistoires`, `KisatiAna`, `TRCD`, `Chakhabitt`… —
+        # dont de la prose formelle tunisienne, lexicalement proche de la fusha.
+        # C'est elle qui apprenait au modèle où passe la frontière.
+        locator="data/archives/linto-origine",
         include=(
             "Derja_tunsi/", "TunBERT/", "TuDiCOI/", "Tweet_TN/",
             "TunSwitchTunisiaOnly/", "TunSwitchCodeSwitching/",
-            "Sentiment_Derja/", "TunisianSentimentAnalysis/",
-            "TA_Segmentation/", "Tunisian_Dialectic_English_Derja/",
-            "MADAR_TunisianDialect/",
+            "BRAD/", "Chakhabitt/", "CombinedNames/", "HkayetTounsia/",
+            "KisatiAna/", "Lbachch/", "T-HSAB/", "TN_RAP_lyrics/", "TRCD/",
+            "TunHistoires/", "Tunisien_Dialect_Summary-llama2/",
         ),
         # `TSAC/` est exclu : le dépôt le récupère déjà comme source distincte,
         # et le laisser entrer ici mettrait les mêmes textes des deux côtés du
@@ -104,7 +111,12 @@ SOURCES: dict[str, Source] = {
         # blocs propres contre 0,9189 publié. Un corpus de validation ne
         # s'entraîne pas, même de 17 %.
         license="CC BY-SA 4.0",
-        note="Agrégat de sous-corpus tunisiens. La licence est CC BY-**SA** : "
+        note="⚠️ **Archive locale — la seule copie au monde.** Le dépôt "
+             "d'origine a été retiré de Hugging Face ; ce répertoire vient du "
+             "cache HF de cette machine. `fetch` n'est donc PAS reproductible "
+             "ailleurs, et c'est une contrepartie assumée : le dépôt vivant "
+             "fait passer les faux positifs sur la fusha de 0,4 % à 45,6 %.\n"
+             "Agrégat de sous-corpus tunisiens. La licence est CC BY-**SA** : "
              "le partage à l'identique s'impose aux œuvres dérivées, ce qui "
              "engage ce que ce dépôt pourra publier.\n"
              "⚠️ **À plafonner au `fetch`** — `--max-lines 80000`. L'ancien "

@@ -172,9 +172,16 @@ CONTRASTS: dict[str, Contrast] = {
     ),
     "vs_maghreb": Contrast(
         "tunisien contre marocain ET algérien, registres équilibrés des deux "
-        "côtés — le contraste de référence",
+        "côtés — ⚠️ n'est PLUS la référence, voir `vs_maghreb_llm`",
         negatives=["omcd", "mac", "dz", "ary"], positives=["tsac", "tunizi", "arbml_tn", "linto"],
         genre_controlled=True, arabic_only=True, strip_entities=True,
+        # ⚠️ Ce contraste rejetait la fusha à 0,4 % **par accident**. Le mérite
+        # en revenait à l'ancien dépôt LinTO, qui apportait de la prose formelle
+        # tunisienne, lexicalement proche de la fusha, et apprenait au modèle où
+        # passe la frontière. Ce dépôt a disparu ; celui qui l'a remplacé est
+        # presque tout de la parole spontanée. Mesuré depuis : la fusha
+        # encyclopédique passe à **45,6 %** de faux positifs et celle des LLM à
+        # 94,2 %. Conservé pour l'historique et la comparaison, pas pour l'usage.
     ),
     "vs_maghreb_arabizi": Contrast(
         "tunisien contre marocain et algérien, dans l'alphabet reduit que "
@@ -200,6 +207,41 @@ CONTRASTS: dict[str, Contrast] = {
         # d'une mesure faite sur les blocs vus à l'entraînement — une erreur, et
         # la raison pour laquelle `llm_fusha_val` existe désormais.
         # `llm_fusha_val` n'est PAS ici : c'est le juge, il ne s'entraîne pas.
+        #
+        # **Devenu la référence.** 519 blocs — 8,7 % de la classe négative —
+        # produits sur un T4 gratuit, et ils battent tout Wikipédia dosé :
+        #
+        # =====================  ======  =========  =====  =====  ======
+        # négatifs               `ar`    fusha LLM  `mac`  `dz`   récit
+        # =====================  ======  =========  =====  =====  ======
+        # `vs_maghreb`           45,6 %     94,2 %  1,6 %  4,2 %  93,3 %
+        # + `ar` dosé à 10 %      5,8 %     73,4 %  1,0 %  4,8 %  90,7 %
+        # + `llm_fusha`          20,1 %     15,6 %  0,8 %  4,8 %  93,3 %
+        # =====================  ======  =========  =====  =====  ======
+        #
+        # Le corpus adversarial améliore le voisinage maghrébin et laisse le
+        # récit humain **intact**, là où la fusha encyclopédique coûte 2,6
+        # points. Il transfère même à un registre qu'il ne visait pas : `ar`
+        # tombe de moitié sans qu'un bloc de Wikipédia entre à l'entraînement.
+        # Son point faible, la fusha encyclopédique, est celui que la règle de
+        # conjonction couvre déjà — un article n'a aucun marqueur discriminant.
+    ),
+    "vs_maghreb_fusha": Contrast(
+        "la référence, plus de l'arabe standard encyclopédique dosé à 10 % "
+        "— le modèle du banc, qui ne rencontre jamais d'algérien",
+        negatives=["omcd", "mac", "dz", "ary", "llm_fusha", "ar"],
+        positives=["tsac", "tunizi", "arbml_tn", "linto"],
+        genre_controlled=True, arabic_only=True, strip_entities=True,
+        shares={"ar": 0.10},
+        # Le dosage est tout : `ar` versé en entier occupe la moitié de la
+        # classe et porte le marocain à 11 % et l'algérien à 15,8 %. À 10 %,
+        # avec `llm_fusha` : `ar` 1,1 %, fusha de LLM 5,8 %, `mac` 1,6 %,
+        # `dz` 9,9 %, récit 91,7 %.
+        #
+        # L'algérien paie — 4,8 → 9,9 % — et c'est assumé : le banc mesure des
+        # sorties de LLM, il n'en rencontre pas. Le tri de corpus, lui, a le
+        # voisinage maghrébin pour contaminant principal et emploie
+        # `vs_maghreb_llm`.
     ),
     "vs_moroccan_latin": Contrast(
         "tunisien contre marocain, en Arabizi des deux côtés — le premier "

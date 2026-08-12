@@ -95,6 +95,8 @@ class Contrast:
     latin_only: bool = False
     fold_arabizi: bool = False
     strip_entities: bool = False
+    #: Part maximale d'une source dans sa classe, par clé. Absente = défaut.
+    shares: dict[str, float] = field(default_factory=dict)
 
 
 #: ⚠️ DIVERSITÉ DE PROVENANCE — le facteur le plus déterminant, et mesuré.
@@ -324,7 +326,10 @@ MAX_SOURCE_SHARE: float = 0.5
 
 
 def _capped(
-    raw: dict[str, list[str]], target_words: int, rng: random.Random
+    raw: dict[str, list[str]],
+    target_words: int,
+    rng: random.Random,
+    shares: dict[str, float] | None = None,
 ) -> list[str]:
     """Découpe en blocs sans laisser une provenance écraser les autres.
 
@@ -332,25 +337,52 @@ def _capped(
       raw: lignes par clé de source.
       target_words: taille de bloc visée.
       rng: générateur, pour que la troncature soit reproductible.
+      shares: part maximale par source, en fraction de la classe. Une clé
+        absente retombe sur :data:`MAX_SOURCE_SHARE`. C'est le levier qui
+        permet de **doser** un registre au lieu de le verser en entier —
+        mesuré indispensable : la fusha encyclopédique à 10 % retire 40 points
+        de faux positifs sans toucher au voisinage maghrébin, à 50 % elle
+        multiplie par sept le marocain mal classé.
 
     Returns:
-      Les blocs de toutes les sources, chacune bornée à
-      :data:`MAX_SOURCE_SHARE` du total.
+      Les blocs de toutes les sources, chacune bornée à sa part.
 
     """
+    shares = shares or {}
     par_source = {k: chunk(v, target_words) for k, v in raw.items()}
     par_source = {k: v for k, v in par_source.items() if v}
     # Une part >= 1 ne borne rien, et la formule y divise par zéro. Sortir tôt
     # rend le plafond désactivable proprement — ce qui a servi à mesurer son
     # effet réel plutôt qu'à le supposer.
-    if len(par_source) < 2 or MAX_SOURCE_SHARE >= 1.0:
+    if len(par_source) < 2:
         return [b for v in par_source.values() for b in v]
 
-    # Le plafond se calcule sur le total des AUTRES sources : une source ne
-    # peut pas dépasser ce que le reste du corpus apporte.
+    part = {k: shares.get(k, MAX_SOURCE_SHARE) for k in par_source}
+    # Somme exactement égale à 1 = partage exact, parfaitement faisable. En
+    # dessous, aucun total positif ne satisfait toutes les parts et le point
+    # fixe converge vers zéro : ce serait une classe vide, sans message.
+    if sum(part.values()) < 1.0:
+        raise ValueError(
+            f"parts infaisables : elles somment à {sum(part.values()):.2f} < 1, "
+            "aucune classe ne peut être remplie"
+        )
+
+    # Les parts se résolvent CONJOINTEMENT, par point fixe. Les borner l'une
+    # après l'autre ne marche pas : chaque source était limitée contre un total
+    # qui venait de rétrécir, si bien que la dernière annulait la première —
+    # une source dosée à 10 % ressortait à 50 %.
+    #
+    # On cherche le plus grand total T tel que chaque source contribue
+    # min(disponible, part × T). L'itération décroît vers ce point fixe.
+    total = sum(len(v) for v in par_source.values())
+    for _ in range(64):
+        suivant = sum(min(len(v), int(part[k] * total)) for k, v in par_source.items())
+        if suivant == total:
+            break
+        total = suivant
+
     for cle, blocs in par_source.items():
-        autres = sum(len(v) for k, v in par_source.items() if k != cle)
-        plafond = int(autres * MAX_SOURCE_SHARE / (1 - MAX_SOURCE_SHARE))
+        plafond = int(part[cle] * total)
         if len(blocs) > plafond:
             rng.shuffle(blocs)
             par_source[cle] = blocs[:plafond]
@@ -423,8 +455,8 @@ def build(
         neg_raw = {k: v for k, v in neg_raw.items() if v}
 
     rng = random.Random(seed)
-    pos = _capped(pos_raw, target_words, rng)
-    neg = _capped(neg_raw, target_words, rng)
+    pos = _capped(pos_raw, target_words, rng, spec.shares)
+    neg = _capped(neg_raw, target_words, rng, spec.shares)
     rng.shuffle(pos)
     rng.shuffle(neg)
 

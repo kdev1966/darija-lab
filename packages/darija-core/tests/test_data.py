@@ -569,3 +569,69 @@ def test_une_source_unique_reste_intacte():
 
     raw = {"seule": ["كلمة " * 60] * 300}
     assert len(B._capped(raw, B.TARGET_WORDS, random.Random(0))) == 300
+
+
+def test_une_source_peut_etre_dosee_plutot_que_versee_en_entier():
+    """Doser un registre est la difference entre corriger et casser.
+
+    Mesure : la fusha encyclopedique a 10 % de la classe negative fait tomber
+    les faux positifs de 45,6 % a 5,8 % SANS toucher au voisinage maghrebin —
+    le marocain s'ameliore meme (1,6 -> 1,0 %). Versee a 50 %, la meme source
+    porte le marocain a 11,0 % et l'algerien a 15,8 %. Sans part par source, le
+    seul reglage disponible etait « tout ou rien », et les deux etaient mauvais.
+    """
+    import random
+
+    raw = {
+        "ar": ["كلمة " * 60] * 5000,
+        "a": ["حرف " * 60] * 900,
+        "b": ["نص " * 60] * 900,
+    }
+    blocs = B._capped(raw, B.TARGET_WORDS, random.Random(0), {"ar": 0.10})
+    part = sum(1 for b in blocs if "كلمة" in b) / len(blocs)
+    assert 0.09 <= part <= 0.11, f"dosee a {part:.0%} au lieu de 10 %"
+
+
+def test_les_parts_se_resolvent_conjointement_pas_l_une_apres_l_autre():
+    """Les borner en sequence laissait la derniere annuler la premiere.
+
+    Chaque source etait limitee contre un total qui venait de retrecir : une
+    source dosee a 10 % ressortait a 50 %. Les parts se resolvent donc par
+    point fixe sur le total.
+    """
+    import random
+
+    raw = {
+        "ar": ["كلمة " * 60] * 5000,
+        "a": ["حرف " * 60] * 900,
+        "b": ["نص " * 60] * 900,
+    }
+    for cible in (0.10, 0.20, 0.35):
+        blocs = B._capped(raw, B.TARGET_WORDS, random.Random(0), {"ar": cible})
+        obtenu = sum(1 for x in blocs if "كلمة" in x) / len(blocs)
+        assert abs(obtenu - cible) < 0.01, f"{cible:.0%} demande, {obtenu:.0%} obtenu"
+
+
+def test_des_parts_infaisables_sont_signalees():
+    """Deux sources a 10 % ne peuvent pas remplir une classe.
+
+    Sans ce garde-fou, le point fixe converge vers zero et `build` rendrait une
+    classe vide — un modele entraine sur rien, sans message d'erreur.
+    """
+    import random
+
+    import pytest as _pytest
+
+    raw = {"a": ["كلمة " * 60] * 100, "b": ["حرف " * 60] * 100}
+    with _pytest.raises(ValueError, match="infaisables"):
+        B._capped(raw, B.TARGET_WORDS, random.Random(0), {"a": 0.1, "b": 0.1})
+
+
+def test_une_source_sans_part_declaree_garde_le_defaut():
+    """Le dosage est un ajout, pas un changement de comportement."""
+    import random
+
+    raw = {"enorme": ["كلمة " * 60] * 5000, "petite": ["حرف " * 60] * 50}
+    a = B._capped(raw, B.TARGET_WORDS, random.Random(0))
+    b = B._capped(raw, B.TARGET_WORDS, random.Random(0), {"absente": 0.1})
+    assert len(a) == len(b)

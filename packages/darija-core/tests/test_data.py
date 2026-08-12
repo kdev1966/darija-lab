@@ -153,8 +153,12 @@ def test_genre_controlled_contrasts_are_fully_controlled():
     alphabet filtré, entités retirées, provenances multiples.
     """
     controlled = {n for n, c in B.CONTRASTS.items() if c.genre_controlled}
+    # `vs_maghreb_arabizi` est le contraste de reference a un repli pres : il
+    # projette les deux classes dans l'alphabet que l'ecriture latine sait
+    # exprimer, pour scorer du texte translittere. Le controle de genre y est
+    # identique, donc il appartient a cette liste.
     assert controlled == {"vs_moroccan_yt", "vs_moroccan_tw", "vs_algerian",
-                          "vs_maghreb"}
+                          "vs_maghreb", "vs_maghreb_arabizi"}
     for name in controlled:
         c = B.CONTRASTS[name]
         assert c.positives, f"{name}: positifs non restreints"

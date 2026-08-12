@@ -7,8 +7,8 @@ réutilisables, corpus, et applications qui les consomment.
 sont en français ; les identifiants restent en anglais.
 
 ```
-packages/darija-core/        bibliothèque socle (98 tests, ruff propre)
-apps/darija-bench/           banc d'évaluation de LLM (22 tests, ruff propre)
+packages/darija-core/        bibliothèque socle (115 tests, ruff propre)
+apps/darija-bench/           banc d'évaluation et tri de corpus (63 tests)
 data/tunisian-poetry-corpus/ 2 028 textes de poésie populaire, 396 681 mots
 docs/HANDOVER.md             historique détaillé et mesures
 docs/ROADMAP.md              le choix de la première application, et pourquoi
@@ -27,7 +27,7 @@ Les extras : `[dev]` (pytest, ruff), `[data]` (huggingface-hub, pyarrow — pour
 ```bash
 cd packages/darija-core
 python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev,data]"
-.venv/bin/python -m pytest -q     # 98 tests
+.venv/bin/python -m pytest -q     # 115 tests
 .venv/bin/ruff check src tests
 ```
 
@@ -43,7 +43,7 @@ Il n'apprend pas « voici du tunisien », il apprend « ceci plutôt que cela »
 **Le choix des négatifs détermine ce que le modèle sait faire.** Entraîné contre
 du MSA seul, il étiquette du marocain comme tunisien.
 
-### 4. Sept biais ont été trouvés et corrigés — ne pas les réintroduire
+### 4. Huit biais ont été trouvés et corrigés — ne pas les réintroduire
 
 Chacun n'est devenu visible qu'après correction du précédent. Tous sont
 documentés dans le code et verrouillés par des tests.
@@ -57,6 +57,7 @@ documentés dans le code et verrouillés par des tests.
 | 5 | provenance | 0,998 interne mais **70 %** ailleurs | plusieurs corpus tunisiens |
 | 6 | registre | 25,6 % du marocain formel mal classé | registres équilibrés |
 | 7 | registre d'assistant | 0,4 % de faux positifs sur la fusha encyclopédique, mais **33 %** sur la fusha conversationnelle | conjonction classifieur + marqueurs |
+| 8 | marqueurs non discriminants | la règle « ≥ 1 marqueur » déclenchait sur 86,6 % du tunisien et **86,0 % du marocain** | `markers.DISCRIMINANT` |
 
 **Le septième s'est révélé en construisant `darija-bench`**, et il suit
 exactement le même schéma que le sixième. `darija data validate` mesure 0,4 %
@@ -83,6 +84,19 @@ positif de référence externe avant de fixer un seuil.
 Le classifieur, lui, reconnaît le récit authentique à 94 % avec 6,9 %
 d'indécision : il n'est pas aveugle au registre narratif. Ce sont les sorties
 de LLM qui sont réellement moins tunisiennes que du tunisien humain.
+
+**Le huitième est le prolongement du septième.** Compter les dix-neuf
+marqueurs rendait la règle inopérante : elle déclenchait sur 86,6 % du
+tunisien et 86,0 % du marocain — un écart de +0,6 point. Trois d'entre eux
+sont aussi fréquents ailleurs qu'en tunisien, voire plus : le préfixe `ن-`
+note le *je* en tunisien et le *nous* en arabe classique (66,6 % de la fusha),
+`اللي` est **cinq fois plus fréquent en marocain**, `علاش` aussi. La décision
+ne compte donc que `markers.DISCRIMINANT` — écart porté à +29,8 points.
+
+Corollaire mesuré : ce filtre **ne sert pas partout**. Sur du texte humain il
+coûte 10 à 37 points et ne gagne rien sur les contre-exemples, que le
+classifieur seul rejette déjà à 99,3-100 %. Il est donc appliqué dans le banc
+(sorties de LLM) et optionnel dans le tri (`--strict`).
 
 **Une AUC élevée ne prouve rien ici.** Toujours valider source par source :
 

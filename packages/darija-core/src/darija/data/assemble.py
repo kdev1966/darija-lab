@@ -340,7 +340,10 @@ def _capped(
     """
     par_source = {k: chunk(v, target_words) for k, v in raw.items()}
     par_source = {k: v for k, v in par_source.items() if v}
-    if len(par_source) < 2:
+    # Une part >= 1 ne borne rien, et la formule y divise par zéro. Sortir tôt
+    # rend le plafond désactivable proprement — ce qui a servi à mesurer son
+    # effet réel plutôt qu'à le supposer.
+    if len(par_source) < 2 or MAX_SOURCE_SHARE >= 1.0:
         return [b for v in par_source.values() for b in v]
 
     # Le plafond se calcule sur le total des AUTRES sources : une source ne

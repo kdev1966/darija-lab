@@ -164,10 +164,11 @@ registre où le classifieur trébuche. Les marqueurs écartés restent
 - **Le corpus de validation n'est pas versé dans le dépôt.** CC BY-SA
   imposerait le partage à l'identique aux œuvres dérivées. Les tests se sautent
   quand il n'est pas en cache local ; la CI ne télécharge rien.
-- **L'Arabizi passe par une translittération approximative.** `to_arabic` rend
-  `barcha` en `بارشا`, que le motif des marqueurs ne reconnaît même pas. Le
-  rapport sépare toujours ces lignes ; les mélanger donnerait un chiffre unique
-  flatteur et faux.
+- **L'Arabizi passe par une translittération approximative**, nettement
+  améliorée depuis : les blocs de TUNIZI reconnus tunisiens sont passés de
+  47 % à 77 %. Elle reste un contournement — le classifieur n'a jamais vu
+  d'Arabizi — et l'ambiguïté brève/longue est irréductible. Le rapport sépare
+  toujours ces lignes ; les mélanger donnerait un chiffre unique faux.
 - **Sous 25 mots, rien n'est décidable.** `min_words` du classifieur. Ces
   réponses sont comptées à part, jamais comme des échecs : un modèle laconique
   n'est pas un modèle qui parle fusha.

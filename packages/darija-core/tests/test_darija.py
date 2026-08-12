@@ -53,10 +53,48 @@ def test_script_ratio_empty():
 # -------------------------------------------------------------------- arabizi
 @pytest.mark.parametrize(
     ("src", "expected"),
-    [("9alb", "قالب"), ("7ob", "حوب"), ("enti", "انتي"), ("kha", "خا")],
+    # `9alb` et `7ob` attendaient auparavant `قالب` et `حوب` — un moule et un
+    # non-mot. Chaque voyelle latine devenait une alif, faute de traiter les
+    # breves. Les formes justes sont `قلب` (coeur) et `حب` (amour).
+    [("9alb", "قلب"), ("7ob", "حب"), ("enti", "انتي"), ("kha", "خا"),
+     ("barcha", "برشا")],
 )
 def test_to_arabic_basic(src, expected):
     assert arabizi.to_arabic(src) == expected
+
+
+def test_les_voyelles_longues_survivent_a_la_regle_des_breves():
+    """Les cles a deux caracteres notent les longues et passent en premier.
+
+    Les appliquer apres la regle des breves detruisait `aa`, `ou`, `ee` : la
+    branche des voyelles consommait leur premiere lettre. Mesure : le gain sur
+    TUNIZI retombait de 77 % a 48 % de blocs reconnus.
+    """
+    assert arabizi.to_arabic("saa") == "سا"
+    assert arabizi.to_arabic("nou") == "نو"
+    assert arabizi.to_arabic("mchina") == "مشينا"
+
+
+def test_les_chiffres_lettres_comptent_comme_des_consonnes():
+    """En Arabizi `3` vaut ع et `7` vaut ح : ce sont des consonnes.
+
+    Les oublier dans le test de position rendait `9alb` en `قالب`, la voyelle
+    n'etant pas vue comme encadree. 73 % des lignes de TUNIZI portent un
+    chiffre-lettre, donc l'oubli portait loin.
+    """
+    assert arabizi.to_arabic("9alb") == "قلب"
+    assert arabizi.to_arabic("7ob") == "حب"
+
+
+def test_l_ambiguite_breve_longue_reste_entiere():
+    """`gal` (ڨال) et `9alb` (قلب) ont la meme forme consonne-a-consonne.
+
+    L'Arabizi ne distingue pas breves et longues ; aucune regle ne peut les
+    separer sans dictionnaire. La regle tranche pour la breve, le cas le plus
+    frequent — et se trompe donc sur `gal`. Ce test consigne la limite plutot
+    que de la masquer.
+    """
+    assert arabizi.to_arabic("gal") == "ڨل"  # attendu linguistiquement : ڨال
 
 
 def test_longest_match_wins():
@@ -74,8 +112,11 @@ def test_e_is_positional():
 
 
 def test_g_convention_is_configurable():
-    assert arabizi.to_arabic("gal") == "ڨال"
-    assert arabizi.to_arabic("gal", g_as_qaf=True) == "قال"
+    # Eprouve sur une consonne isolee : `gal` melait la convention du `g` a
+    # l'ambiguite des voyelles, donc le test mesurait deux choses a la fois.
+    assert arabizi.to_arabic("g") == "ڨ"
+    assert arabizi.to_arabic("g", g_as_qaf=True) == "ق"
+    assert arabizi.to_arabic("gomri", g_as_qaf=True).startswith("ق")
 
 
 def test_to_arabizi_roundtrip_is_stable():

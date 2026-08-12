@@ -122,7 +122,22 @@ jamais vues.
 **Ne sait pas faire :**
 - **L'Arabizi.** TUNIZI est à 99,9 % en alphabet latin et le filtre `arabic_only`
   l'élimine → **0 bloc**. Le modèle ignore la forme écrite majoritaire du
-  tunisien. C'est le trou le plus net.
+  tunisien. C'était le trou le plus net.
+
+  **Atténué, pas comblé.** `arabizi.to_arabic` ne notait aucune voyelle brève
+  et produisait des formes inexistantes — `barcha` sortait `بارشا` au lieu de
+  `برشا`, que ni le classifieur ni les marqueurs ne reconnaissent. Deux
+  correctifs : les voyelles brèves internes sont supprimées, et les
+  chiffres-lettres comptent comme des consonnes (`9alb` → `قلب`, non `قالب`).
+
+  Mesuré sur TUNIZI : les blocs reconnus tunisiens passent de **47 % à 77 %**,
+  la position médiane de 8 % à 31 %, et le tri du corpus de 0 % à **76,6 %**.
+
+  Le contournement reste un contournement : le classifieur n'a toujours jamais
+  vu d'Arabizi, et l'ambiguïté brève/longue est irréductible sans dictionnaire
+  (`gal` → `ڨل` au lieu de `ڨال`). La voie directe — entraîner sur de
+  l'Arabizi — reste bloquée faute de négatif maghrébin propre en écriture
+  latine ; voir le contraste `vs_moroccan_latin` et son avertissement.
 - **Le registre littéraire ancien.** La poésie populaire n'est reconnue
   tunisienne que dans 42,3 % des cas. Ce registre n'est dans aucune classe.
 

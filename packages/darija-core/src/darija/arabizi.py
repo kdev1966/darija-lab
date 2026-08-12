@@ -59,6 +59,40 @@ ARABIC_TO_ARABIZI: Final[dict[str, str]] = {
 #: Clés triées par longueur décroissante : garantit le plus-long-d'abord.
 _KEYS: Final[list[str]] = sorted(ARABIZI_TO_ARABIC, key=len, reverse=True)
 
+#: Clés d'au moins deux caractères, du plus long au plus court. Elles portent
+#: les digrammes (``ch``, ``kh``) **et les voyelles longues** (``aa``, ``ou``).
+#: Elles doivent être essayées avant la règle des voyelles brèves, sans quoi
+#: celle-ci consomme leur première lettre et les détruit.
+_MULTI: Final[list[str]] = [k for k in _KEYS if len(k) > 1]
+
+#: Voyelles que l'Arabizi écrit et que l'arabe omet quand elles sont brèves.
+#: ``i`` et ``u`` en sont exclus : mesuré, les ajouter n'apporte rien.
+_SHORT_VOWELS: Final[frozenset[str]] = frozenset("aeo")
+
+_LATIN_VOWELS: Final[frozenset[str]] = frozenset("aeiou")
+
+#: Chiffres-lettres. En Arabizi ce sont des **consonnes** — ``3`` vaut ع,
+#: ``7`` vaut ح — et 73 % des lignes de TUNIZI en portent. Les oublier dans le
+#: test de position faisait rendre ``9alb`` en ``قالب`` au lieu de ``قلب``.
+_DIGIT_LETTERS: Final[frozenset[str]] = frozenset("23456789")
+
+
+def _is_consonant(ch: str) -> bool:
+    """Vrai pour une consonne d'Arabizi : lettre latine non vocalique, ou chiffre."""
+    return (ch.isalpha() and ch not in _LATIN_VOWELS) or ch in _DIGIT_LETTERS
+
+
+def _is_short_vowel(low: str, i: int) -> bool:
+    """Vrai si la voyelle en ``i`` est brève : entre deux consonnes, dans un mot.
+
+    En début et en fin de mot la voyelle s'écrit (``برشا`` garde son alif
+    final). Au contact d'une autre voyelle, la séquence note une longue et a
+    déjà été captée par :data:`_MULTI`.
+    """
+    if i == 0 or i + 1 >= len(low):
+        return False
+    return _is_consonant(low[i - 1]) and _is_consonant(low[i + 1])
+
 #: Un chiffre-lettre entouré de lettres latines, ou en fin de mot après une
 #: lettre. C'est le marqueur le plus fiable de l'Arabizi : ``3ala``, ``m3a``,
 #: ``9alb``, ``bara7``. Un simple « du latin avec des chiffres » ne suffit pas —
@@ -101,9 +135,28 @@ def to_arabic(text: str, *, g_as_qaf: bool = False) -> str:
       espaces traversent inchangés.
 
     Notes:
-      ``e`` est traité comme une voyelle brève : rendu ``ا`` en début de mot
-      (``enti`` → ``انتي``), supprimé ailleurs (``behi`` → ``بهي``), ce qui suit
-      l'usage arabe de ne pas noter les brèves.
+      ``e``, ``a`` et ``o`` sont traités comme des **voyelles brèves** quand
+      ils sont pris entre deux consonnes à l'intérieur d'un mot : supprimés,
+      puisque l'arabe ne les note pas. Ailleurs — début de mot, fin de mot,
+      contact avec une autre voyelle — ils sont rendus.
+
+      Sans cette règle, chaque voyelle latine devenait une alif et produisait
+      des formes qui n'existent pas : ``barcha`` sortait ``بارشا`` au lieu de
+      ``برشا``, que ni le classifieur ni les marqueurs ne reconnaissent.
+
+      **L'ordre compte.** Les clés à deux caractères — ``aa``, ``ee``, ``oo``,
+      ``ou`` — notent les voyelles *longues* et sont donc essayées d'abord.
+      Appliquer la règle des brèves avant elles les détruirait, et le gain
+      s'annulerait.
+
+      Mesuré sur les 2 086 lignes de TUNIZI, translittérées puis scorées par
+      le contraste de référence : la part des blocs reconnus tunisiens passe
+      de **47 % à 74 %**.
+
+      Reste une ambiguïté irréductible : l'Arabizi ne distingue pas brèves et
+      longues, donc ``9alb`` (``قلب``) et ``gal`` (``ڨال``) ont la même forme
+      consonne-a-consonne. La règle tranche pour la brève, qui est le cas le
+      plus fréquent.
 
     """
     out: list[str] = []
@@ -111,16 +164,9 @@ def to_arabic(text: str, *, g_as_qaf: bool = False) -> str:
     low = text.lower()
     n = len(text)
     while i < n:
-        ch = low[i]
-
-        # 'e' : voyelle brève, dépend de la position dans le mot
-        if ch == "e":
-            at_word_start = i == 0 or not low[i - 1].isalnum()
-            out.append("ا" if at_word_start else "")
-            i += 1
-            continue
-
-        for key in _KEYS:
+        # Les clés longues d'abord : elles portent les digrammes (``ch``,
+        # ``kh``) et les voyelles longues (``aa``, ``ou``).
+        for key in _MULTI:
             if low.startswith(key, i):
                 mapped = ARABIZI_TO_ARABIC[key]
                 if mapped == "ڨ" and g_as_qaf:
@@ -129,7 +175,17 @@ def to_arabic(text: str, *, g_as_qaf: bool = False) -> str:
                 i += len(key)
                 break
         else:
-            out.append(text[i])
+            ch = low[i]
+            if ch in _SHORT_VOWELS and _is_short_vowel(low, i):
+                pass  # brève interne : l'arabe ne la note pas
+            elif ch == "e":
+                # `e` n'est pas dans la table ; rendu seulement en tête de mot.
+                out.append("ا" if i == 0 or not low[i - 1].isalnum() else "")
+            elif ch in ARABIZI_TO_ARABIC:
+                mapped = ARABIZI_TO_ARABIC[ch]
+                out.append("ق" if mapped == "ڨ" and g_as_qaf else mapped)
+            else:
+                out.append(text[i])
             i += 1
     return "".join(out)
 

@@ -308,6 +308,52 @@ class Dataset:
         }
 
 
+#: Part maximale d'une classe qu'une seule provenance peut occuper.
+#:
+#: Le biais nº 5 — un modèle entraîné sur une seule provenance apprend le
+#: corpus, pas la langue — était corrigé en *ajoutant* des provenances. Il
+#: restait donc réintroductible sans que rien ne le signale : il a suffi que
+#: le dépôt LinTO change d'adresse et passe de 80 000 à **2 020 697** lignes
+#: pour que cette source seule pèse 98 % de la classe positive après
+#: équilibrage. Les trois autres provenances tunisiennes disparaissaient, et
+#: aucune AUC ne l'aurait montré.
+#:
+#: Le plafond rend l'accident impossible par construction, au lieu de dépendre
+#: d'un ``--max-lines`` qu'il faut penser à passer.
+MAX_SOURCE_SHARE: float = 0.5
+
+
+def _capped(
+    raw: dict[str, list[str]], target_words: int, rng: random.Random
+) -> list[str]:
+    """Découpe en blocs sans laisser une provenance écraser les autres.
+
+    Args:
+      raw: lignes par clé de source.
+      target_words: taille de bloc visée.
+      rng: générateur, pour que la troncature soit reproductible.
+
+    Returns:
+      Les blocs de toutes les sources, chacune bornée à
+      :data:`MAX_SOURCE_SHARE` du total.
+
+    """
+    par_source = {k: chunk(v, target_words) for k, v in raw.items()}
+    par_source = {k: v for k, v in par_source.items() if v}
+    if len(par_source) < 2:
+        return [b for v in par_source.values() for b in v]
+
+    # Le plafond se calcule sur le total des AUTRES sources : une source ne
+    # peut pas dépasser ce que le reste du corpus apporte.
+    for cle, blocs in par_source.items():
+        autres = sum(len(v) for k, v in par_source.items() if k != cle)
+        plafond = int(autres * MAX_SOURCE_SHARE / (1 - MAX_SOURCE_SHARE))
+        if len(blocs) > plafond:
+            rng.shuffle(blocs)
+            par_source[cle] = blocs[:plafond]
+    return [b for v in par_source.values() for b in v]
+
+
 def build(
     contrast: str = "vs_all",
     cache: Path = DEFAULT_CACHE,
@@ -374,8 +420,8 @@ def build(
         neg_raw = {k: v for k, v in neg_raw.items() if v}
 
     rng = random.Random(seed)
-    pos = [b for lines in pos_raw.values() for b in chunk(lines, target_words)]
-    neg = [b for lines in neg_raw.values() for b in chunk(lines, target_words)]
+    pos = _capped(pos_raw, target_words, rng)
+    neg = _capped(neg_raw, target_words, rng)
     rng.shuffle(pos)
     rng.shuffle(neg)
 

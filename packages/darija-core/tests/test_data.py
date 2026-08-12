@@ -537,3 +537,35 @@ def test_le_corpus_de_verite_terrain_nentraine_aucun_modele():
         assert not any("HkayetErwi" in x for x in src.include), (
             f"{cle} entraine sur le corpus qui le juge"
         )
+
+
+def test_aucune_provenance_ne_peut_ecraser_les_autres():
+    """Le biais no 5 doit etre impossible par construction, pas par vigilance.
+
+    Il etait corrige en AJOUTANT des provenances, donc reintroductible sans
+    signal : le depot LinTO a change d'adresse et est passe de 80 000 a
+    2 020 697 lignes. Cette source seule aurait pese 98 % de la classe positive
+    apres equilibrage, et aucune AUC ne l'aurait montre.
+    """
+    import random
+
+    raw = {"enorme": ["كلمة " * 60] * 5000, "petite": ["حرف " * 60] * 50}
+    blocs = B._capped(raw, B.TARGET_WORDS, random.Random(0))
+    gros = sum(1 for b in blocs if "كلمة" in b)
+    assert gros / len(blocs) <= B.MAX_SOURCE_SHARE + 1e-9, "une provenance ecrase le reste"
+
+
+def test_le_plafond_ne_touche_pas_un_corpus_deja_equilibre():
+    """Il borne un accident, il ne redecoupe pas ce qui va bien."""
+    import random
+
+    raw = {"a": ["كلمة " * 60] * 100, "b": ["حرف " * 60] * 100}
+    assert len(B._capped(raw, B.TARGET_WORDS, random.Random(0))) == 200
+
+
+def test_une_source_unique_reste_intacte():
+    """Un contraste a une seule provenance n'a rien a equilibrer."""
+    import random
+
+    raw = {"seule": ["كلمة " * 60] * 300}
+    assert len(B._capped(raw, B.TARGET_WORDS, random.Random(0))) == 300

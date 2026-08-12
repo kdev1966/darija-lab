@@ -87,6 +87,39 @@ def position(score: float) -> float:
     return (score - BAS) / (HAUT - BAS)
 
 
+#: Les quatre zones, dans l'ordre croissant. La **clé** est stable ; le texte
+#: dépend de la langue d'affichage, et la page est en arabe. Sans cette
+#: séparation, traduire l'interface obligerait à dupliquer les bornes — donc à
+#: les laisser diverger un jour.
+ZONES: tuple[str, ...] = ("bas", "sous_typique", "centre", "haut")
+
+_ZONES_FR: dict[str, str] = {
+    "bas": "sous le dixième le plus bas du récit humain",
+    "sous_typique": "sous la zone typique, mais dans la fourchette du récit humain",
+    "centre": "dans la moitié centrale du récit humain",
+    "haut": "au-dessus des trois quarts du récit humain",
+}
+
+
+def zone(pos: float) -> str:
+    """Nomme la zone de dispersion humaine où tombe une position.
+
+    Args:
+      pos: sortie de :func:`position`.
+
+    Returns:
+      L'une des clés de :data:`ZONES`.
+
+    """
+    if pos < position(HUMAIN_P10):
+        return "bas"
+    if pos < position(HUMAIN_Q1):
+        return "sous_typique"
+    if pos <= position(HUMAIN_Q3):
+        return "centre"
+    return "haut"
+
+
 def qualify(pos: float) -> str:
     """Situe une position **par rapport à la dispersion humaine**, en clair.
 
@@ -101,13 +134,7 @@ def qualify(pos: float) -> str:
       Une phrase courte, sans jargon.
 
     """
-    if pos < position(HUMAIN_P10):
-        return "sous le dixième le plus bas du récit humain"
-    if pos < position(HUMAIN_Q1):
-        return "sous la zone typique, mais dans la fourchette du récit humain"
-    if pos <= position(HUMAIN_Q3):
-        return "dans la moitié centrale du récit humain"
-    return "au-dessus des trois quarts du récit humain"
+    return _ZONES_FR[zone(pos)]
 
 
 def spread() -> dict[str, float]:

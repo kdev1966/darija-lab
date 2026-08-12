@@ -28,7 +28,7 @@ from darija import arabizi, codeswitch, markers
 from darija.dialect import DialectModel
 from darija.normalize import Level, normalize, script_ratio
 
-from . import anchors
+from . import anchors, labels_ar
 from .scoring import MIN_DISTINCT_MARKERS, blocks, prepare
 
 #: Au-delà de cette longueur, un score unique est une moyenne qui lisse la
@@ -87,6 +87,9 @@ class Measure:
             score=round(score, 4),
             position=round(anchors.position(score), 4),
             qualifier=anchors.qualify(anchors.position(score)),
+            # La page est en arabe ; la mesure reste calculee une seule fois,
+            # et seul le nom de la zone est traduit.
+            qualifier_ar=labels_ar.ZONES[anchors.zone(anchors.position(score))],
             above_classifier=score >= self.model.threshold,
             n_markers=len(distinct),
             min_markers=MIN_DISTINCT_MARKERS,
@@ -97,6 +100,12 @@ class Measure:
                     "category": markers.MARKERS[name][1],
                     "decides": name in markers.DISCRIMINANT,
                     "gloss": markers.MARKERS[name][2],
+                    "gloss_ar": labels_ar.MARQUEURS.get(
+                        name, markers.MARKERS[name][2]
+                    ),
+                    "category_ar": labels_ar.CATEGORIES.get(
+                        markers.MARKERS[name][1], markers.MARKERS[name][1]
+                    ),
                     "count": sum(1 for m in found if m.marker == name),
                 }
                 for name in tous
@@ -132,9 +141,9 @@ class Measure:
 
 
 PAGE = """<!doctype html>
-<html lang="fr"><head><meta charset="utf-8">
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>darija-bench — mesurer un texte</title>
+<title>darija-bench — قياس نصّ</title>
 <style>
 :root {
   --bg:#faf9f7; --fg:#1c1a17; --muted:#6b6560; --line:#ddd8d2;
@@ -145,148 +154,162 @@ PAGE = """<!doctype html>
   --card:#1f1d17; --accent:#d19a5e; --ok:#7fb98a; --no:#d98a8a;}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
-  font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;}
+  font:16px/1.7 "SF Arabic","Geeza Pro","Segoe UI",Tahoma,
+    ui-sans-serif,system-ui,sans-serif;}
 .wrap{max-width:860px;margin:0 auto;padding:2rem 1.25rem 4rem}
-h1{font-size:1.35rem;margin:0 0 .25rem;font-weight:650}
+h1{font-size:1.4rem;margin:0 0 .25rem;font-weight:650}
 .sub{color:var(--muted);margin:0 0 1.5rem;font-size:.92rem}
 textarea{width:100%;min-height:170px;padding:.9rem;border:1px solid var(--line);
   border-radius:10px;background:var(--card);color:var(--fg);
-  font:inherit;font-size:1.05rem;resize:vertical}
+  font:inherit;font-size:1.1rem;line-height:1.8;resize:vertical}
 textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
 .row{display:flex;gap:.75rem;align-items:center;margin:.85rem 0 0;flex-wrap:wrap}
 button{background:var(--accent);color:#fff;border:0;border-radius:8px;
-  padding:.6rem 1.15rem;font:inherit;font-weight:600;cursor:pointer}
+  padding:.6rem 1.4rem;font:inherit;font-weight:600;cursor:pointer}
 button:disabled{opacity:.5;cursor:default}
 .hint{color:var(--muted);font-size:.85rem}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:1.1rem 1.2rem;margin-top:1.5rem}
 .big{font-size:2.4rem;font-weight:700;line-height:1;margin:0}
-.scale{position:relative;height:12px;background:linear-gradient(90deg,#c9b8a4,#7fb98a);
+/* La barre reste en LTR au milieu d'une page RTL : elle porte une echelle
+   numerique croissante, et une position sur une droite graduee n'est pas du
+   texte. L'inverser mettrait 86 % plus a gauche que 57 %. */
+.scale{position:relative;height:12px;direction:ltr;
+  background:linear-gradient(90deg,#c9b8a4,#7fb98a);
   border-radius:99px;margin:1.1rem 0 .35rem}
-.pin{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);border-radius:2px;z-index:2}
-/* La moitie centrale du recit humain. Sans elle, le repere de droite passe
-   pour un plafond alors que c'est une mediane : la moitie du corpus humain
-   est au-dela, jusqu'a 151 %. */
+.pin{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);
+  border-radius:2px;z-index:2}
+/* La moitie centrale du recit humain. Sans elle, le repere du bout passe pour
+   un plafond alors que c'est une mediane : la moitie du corpus humain est
+   au-dela, jusqu'a 151 %. */
 .band{position:absolute;top:0;height:100%;background:rgba(255,255,255,.34);
   border-left:1px solid rgba(0,0,0,.28);border-right:1px solid rgba(0,0,0,.28)}
 .p10{position:absolute;top:0;height:100%;width:1px;background:rgba(0,0,0,.28)}
-.ends{display:flex;justify-content:space-between;color:var(--muted);font-size:.8rem}
-.legend{color:var(--muted);font-size:.78rem;margin:.45rem 0 0}
-table{width:100%;border-collapse:collapse;margin-top:.6rem;font-size:.92rem}
-td,th{text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--line)}
+.ends{display:flex;direction:ltr;justify-content:space-between;
+  color:var(--muted);font-size:.8rem}
+.legend{color:var(--muted);font-size:.8rem;margin:.45rem 0 0}
+table{width:100%;border-collapse:collapse;margin-top:.6rem;font-size:.95rem}
+td,th{text-align:start;padding:.35rem .5rem;border-bottom:1px solid var(--line)}
 th{color:var(--muted);font-weight:600}
+.num{direction:ltr;unicode-bidi:embed;display:inline-block}
 .ar{font-size:1.15rem}
 .tag{display:inline-block;padding:.12rem .5rem;border-radius:99px;
-  font-size:.78rem;border:1px solid var(--line);color:var(--muted)}
+  font-size:.8rem;border:1px solid var(--line);color:var(--muted)}
 .ok{color:var(--ok)} .no{color:var(--no)}
-.spark{display:flex;align-items:flex-end;gap:2px;height:50px;margin:.4rem 0 .2rem;
-  padding:0 .1rem;border-bottom:1px solid var(--line)}
+.spark{display:flex;direction:ltr;align-items:flex-end;gap:2px;height:50px;
+  margin:.4rem 0 .2rem;padding:0 .1rem;border-bottom:1px solid var(--line)}
 .spark i{flex:1 1 auto;min-width:3px;border-radius:2px 2px 0 0}
 /* Grise, mais pas cachee : un marqueur non discriminant reste une information
    sur le texte, il ne pese simplement pas dans la decision. */
 .off td{color:var(--muted)}
-.warn{border-left:3px solid var(--accent);padding-left:.9rem;color:var(--muted)}
+.warn{border-inline-start:3px solid var(--accent);padding-inline-start:.9rem;
+  color:var(--muted)}
 details{margin-top:.9rem} summary{cursor:pointer;color:var(--muted);font-size:.9rem}
 </style></head><body><div class="wrap">
-<h1>Ce texte est-il en tunisien&nbsp;?</h1>
-<p class="sub">Collez n'importe quoi — une réponse de modèle, un message, un conte.
-L'écriture latine est translittérée automatiquement.</p>
+<h1>هل هذا النصّ بالتونسي&nbsp;؟</h1>
+<p class="sub">الصق أيّ شيء — جواب نموذج، رسالة، حكاية.
+الكتابة اللاتينية تُنقل إلى الحرف العربي تلقائياً.</p>
 
-<textarea id="t" dir="auto" placeholder="برشا علاش قداش... ou chnowa a7welek..."></textarea>
+<textarea id="t" dir="auto" placeholder="برشا علاش قدّاش... أو chnowa a7welek..."></textarea>
 <div class="row">
-  <button id="go">Mesurer</button>
+  <button id="go">قِس</button>
   <span class="hint" id="hint"></span>
 </div>
 <div id="out"></div>
 
 <script>
 const $=s=>document.querySelector(s);
-const pct=x=>(x*100).toFixed(0)+"%";
+const pct=x=>`<span class="num">${(x*100).toFixed(0)}%</span>`;
+const num=x=>`<span class="num">${x}</span>`;
 
 function render(d){
-  if(d.status==="vide") return `<div class="card warn">Rien à mesurer.</div>`;
+  if(d.status==="vide") return `<div class="card warn">لا شيء لقياسه.</div>`;
   if(d.status==="trop_court") return `<div class="card warn">
-    <strong>Indécidable</strong> — ${d.n_words} mots, il en faut ${d.min_words}.<br>
-    Le classifieur ne rend pas de verdict en dessous. Ce n'est pas un échec du
-    texte&nbsp;: c'est un texte dont on ne sait rien.</div>`;
+    <strong>غير قابل للحسم</strong> — ${num(d.n_words)} كلمة، والمطلوب
+    ${num(d.min_words)}.<br>
+    المصنّف لا يصدر حكماً تحت هذا الحدّ. وليس هذا فشلاً للنصّ&nbsp;: هو نصّ
+    لا نعرف عنه شيئاً.</div>`;
 
   const at=v=>(Math.max(-0.35,Math.min(1.35,v))+0.35)/1.7*100;
   const left=at(d.position).toFixed(1);
   const s=d.spread;
   const verdict=d.is_tunisian
-    ? `<span class="ok">tunisien</span>`
-    : `<span class="no">pas assez tunisien</span>`;
+    ? `<span class="ok">تونسي</span>`
+    : `<span class="no">ليس تونسياً بما يكفي</span>`;
 
-  // Le tableau listait les 19 marqueurs, la ligne « marqueurs distincts » n'en
-  // comptait que les discriminants : 5 lignes affichees pour un compte de 3,
-  // sans aucun moyen de savoir lesquels. `decides` etait deja dans la reponse.
+  // Le tableau listait les 19 marqueurs, la ligne du compte n'en gardait que
+  // les discriminants : 5 lignes affichees pour un compte de 3, sans aucun
+  // moyen de savoir lesquels. `decides` etait deja dans la reponse.
   const mk=d.markers.length
-    ? d.markers.map(m=>`<tr class="${m.decides?"":"off"}"><td>${m.gloss}</td>
-        <td><span class="tag">${m.category}</span></td>
-        <td>${m.decides?"oui":"non"}</td>
-        <td>${m.count}</td></tr>`).join("")
-    : `<tr><td colspan="4" class="hint">aucun marqueur tunisien détecté</td></tr>`;
+    ? d.markers.map(m=>`<tr class="${m.decides?"":"off"}"><td>${m.gloss_ar}</td>
+        <td><span class="tag">${m.category_ar}</span></td>
+        <td>${m.decides?"نعم":"لا"}</td>
+        <td>${num(m.count)}</td></tr>`).join("")
+    : `<tr><td colspan="4" class="hint">لم يُرصد أيّ مؤشّر تونسي</td></tr>`;
 
   const cs=Object.entries(d.codeswitch).filter(([,v])=>v>0)
     .map(([k,v])=>`${k} ${pct(v)}`).join(" · ")||"—";
 
   return `<div class="card">
     <p class="big">${pct(d.position)}</p>
-    <p class="sub" style="margin:.3rem 0 0">position entre deux textes humains — ${verdict}</p>
+    <p class="sub" style="margin:.3rem 0 0">الموضع بين نصّين بشريّين — ${verdict}</p>
     <div class="scale">
       <div class="band" style="left:${at(s.q1).toFixed(1)}%;
         width:${(at(s.q3)-at(s.q1)).toFixed(1)}%"></div>
       <div class="p10" style="left:${at(s.p10).toFixed(1)}%"></div>
       <div class="pin" style="left:${left}%"></div>
     </div>
-    <div class="ends"><span>récit en fusha</span><span>médiane du récit tunisien humain</span></div>
-    <p class="legend">La zone claire est la <strong>moitié centrale</strong> du récit tunisien
-      humain (${pct(s.q1)}–${pct(s.q3)}), le trait fin son dixième le plus bas (${pct(s.p10)}).
-      Le repère de droite est une médiane, pas un plafond.<br>
-      Ce texte est <strong>${d.qualifier}</strong>.</p>
+    <div class="ends"><span>حكي بالفصحى</span><span>وسيط الحكي التونسي البشري</span></div>
+    <p class="legend">المنطقة الفاتحة هي <strong>النصف الأوسط</strong> من الحكي
+      التونسي البشري (${pct(s.q1)}–${pct(s.q3)})، والخطّ الرفيع أدنى عُشر منه
+      (${pct(s.p10)}). العلامة القصوى وسيط، لا سقف.<br>
+      هذا النصّ <strong>${d.qualifier_ar}</strong>.</p>
     <table>
-      <tr><th>score brut</th><td>${d.score}
-        <span class="hint">(seuil ${d.threshold})</span></td></tr>
-      <tr><th>marqueurs qui décident</th><td>${d.n_markers}
-        <span class="hint">(minimum ${d.min_markers}, sur ${d.markers.length}
-        reconnus)</span></td></tr>
-      <tr><th>mots</th><td>${d.n_words}</td></tr>
-      <tr><th>alternance codique</th><td>${cs}</td></tr>
+      <tr><th>النتيجة الخام</th><td>${num(d.score)}
+        <span class="hint">(العتبة ${num(d.threshold)})</span></td></tr>
+      <tr><th>المؤشّرات الحاسمة</th><td>${num(d.n_markers)}
+        <span class="hint">(الحدّ الأدنى ${num(d.min_markers)}، من أصل
+        ${num(d.markers.length)} مرصودة)</span></td></tr>
+      <tr><th>عدد الكلمات</th><td>${num(d.n_words)}</td></tr>
+      <tr><th>تناوب لغوي</th><td>${cs}</td></tr>
     </table>
-    ${d.blocks&&d.blocks.n?`<details open><summary>dispersion sur ${d.blocks.n} blocs</summary>
-      <p class="hint" style="margin:.5rem 0">Le score unique ci-dessus est une moyenne.
-      Les reperes ont ete calcules sur des blocs d'environ 60 mots&nbsp;: voici votre
-      texte a la meme echelle.</p>
+    ${d.blocks&&d.blocks.n?`<details open><summary>التشتّت على ${num(d.blocks.n)}
+      مقطعاً</summary>
+      <p class="hint" style="margin:.5rem 0">النتيجة الواحدة أعلاه معدّل.
+      حُسبت المعالم على مقاطع من نحو 60 كلمة&nbsp;: وهذا نصّك على المقياس نفسه.</p>
       <div class="spark">${d.blocks.positions.map(p=>{
         const h=Math.max(4,Math.min(46,(p+0.35)/1.7*46));
         const c=p>=0.5?"var(--ok)":(p>=0?"var(--accent)":"var(--no)");
-        return `<i style="height:${h}px;background:${c}" title="${pct(p)}"></i>`;}).join("")}</div>
+        return `<i style="height:${h}px;background:${c}" title="${(p*100).toFixed(0)}%"></i>`;
+        }).join("")}</div>
       <table>
-        <tr><th>bloc le plus faible</th><td>${d.blocks.min}</td></tr>
-        <tr><th>mediane des blocs</th><td>${d.blocks.median}</td></tr>
-        <tr><th>bloc le plus fort</th><td>${d.blocks.max}</td></tr>
-        <tr><th>blocs sous le seuil</th><td>${d.blocks.below_threshold} / ${d.blocks.n}</td></tr>
+        <tr><th>أضعف مقطع</th><td>${num(d.blocks.min)}</td></tr>
+        <tr><th>وسيط المقاطع</th><td>${num(d.blocks.median)}</td></tr>
+        <tr><th>أقوى مقطع</th><td>${num(d.blocks.max)}</td></tr>
+        <tr><th>مقاطع تحت العتبة</th><td>${num(d.blocks.below_threshold)} /
+          ${num(d.blocks.n)}</td></tr>
       </table></details>`:""}
     ${d.transliterated?`<div class="warn" style="margin-top:.9rem">
-      Écriture latine détectée et translittérée avant mesure. La conversion est
-      approximative&nbsp;: lisez ce score comme un indice.
+      رُصدت كتابة لاتينية ونُقلت إلى الحرف العربي قبل القياس. النقل تقريبي&nbsp;:
+      اقرأ هذه النتيجة على أنّها مؤشّر لا حكم.
       <div class="ar" dir="rtl" style="margin-top:.4rem">${d.transliteration}</div></div>`:""}
-    <details open><summary>marqueurs reconnus</summary>
-      <table><tr><th>marqueur</th><th>type</th><th>décide&nbsp;?</th><th>n</th></tr>${mk}</table>
+    <details open><summary>المؤشّرات المرصودة</summary>
+      <table><tr><th>المؤشّر</th><th>النوع</th><th>حاسم&nbsp;؟</th><th>العدد</th></tr>
+        ${mk}</table>
     </details>
   </div>`;
 }
 
 async function go(){
   const t=$("#t").value;
-  $("#go").disabled=true; $("#hint").textContent="mesure…";
+  $("#go").disabled=true; $("#hint").textContent="جارٍ القياس…";
   try{
     const r=await fetch("/api/measure",{method:"POST",
       headers:{"content-type":"application/json"},body:JSON.stringify({text:t})});
     const d=await r.json();
-    $("#out").innerHTML=r.ok?render(d):`<div class="card warn">${d.error||"erreur"}</div>`;
+    $("#out").innerHTML=r.ok?render(d):`<div class="card warn">${d.error||"خطأ"}</div>`;
     $("#hint").textContent="";
-  }catch(e){ $("#hint").textContent="erreur : "+e.message; }
+  }catch(e){ $("#hint").textContent="خطأ : "+e.message; }
   $("#go").disabled=false;
 }
 $("#go").addEventListener("click",go);

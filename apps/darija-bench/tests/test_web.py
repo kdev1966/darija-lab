@@ -105,5 +105,39 @@ def test_la_page_expose_les_reperes_qu_elle_promet():
     # gabarit, le texte resterait et mentirait.
     assert 'class="band"' in web.PAGE
     assert 'class="p10"' in web.PAGE
-    assert "médiane" in web.PAGE
-    assert "décide" in web.PAGE
+    assert "وسيط" in web.PAGE, "le repere haut doit se dire mediane, pas plafond"
+    assert "حاسم" in web.PAGE, "la colonne qui dit quels marqueurs decident"
+
+
+def test_la_page_est_en_arabe_et_en_rtl():
+    # L'outil mesure du tunisien ; le lire en francais etait une bizarrerie.
+    assert 'lang="ar"' in web.PAGE and 'dir="rtl"' in web.PAGE
+    assert "هل هذا النصّ بالتونسي" in web.PAGE
+
+
+def test_la_barre_reste_en_ltr_dans_une_page_rtl():
+    # Elle porte une echelle numerique croissante ; une position sur une droite
+    # graduee n'est pas du texte. En RTL, 86 % se retrouverait a gauche de
+    # 57 %. Le CSS doit donc forcer la direction sur la barre et sur ses
+    # legendes de bout.
+    assert ".scale{position:relative;height:12px;direction:ltr" in web.PAGE
+    assert ".ends{display:flex;direction:ltr" in web.PAGE
+
+
+def test_chaque_marqueur_a_une_glose_arabe(modele):
+    # Une clé absente retombe sur le francais plutot que de disparaitre, mais
+    # aucune ne doit manquer : la page serait bilingue par accident.
+    from darija import markers
+
+    from darija_bench import labels_ar
+
+    manquants = set(markers.MARKERS) - set(labels_ar.MARQUEURS)
+    assert not manquants, f"gloses arabes absentes : {sorted(manquants)}"
+    categories = {v[1] for v in markers.MARKERS.values()}
+    assert not categories - set(labels_ar.CATEGORIES)
+
+
+def test_chaque_zone_a_son_libelle_arabe():
+    from darija_bench import labels_ar
+
+    assert set(anchors.ZONES) == set(labels_ar.ZONES)

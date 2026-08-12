@@ -106,8 +106,14 @@ SOURCES: dict[str, Source] = {
         license="CC BY-SA 4.0",
         note="Agrégat de sous-corpus tunisiens. La licence est CC BY-**SA** : "
              "le partage à l'identique s'impose aux œuvres dérivées, ce qui "
-             "engage ce que ce dépôt pourra publier. `HkayetErwi/` est du "
-             "récit — le registre où le classifieur décroche le plus.",
+             "engage ce que ce dépôt pourra publier.\n"
+             "⚠️ **À plafonner au `fetch`** — `--max-lines 80000`. L'ancien "
+             "dépôt en rendait 80 000 ; celui-ci en rend **2 020 697** (745 Mo). "
+             "Sans plafond, LinTO écrase les trois autres provenances "
+             "tunisiennes et le biais nº 5 revient par la porte de derrière. "
+             "`assemble.MAX_SOURCE_SHARE` l'empêche désormais aussi côté "
+             "construction, mais le plafond au téléchargement évite d'abord "
+             "d'occuper trente fois le disque du dépôt entier.",
     ),
     "arbml_tn": Source(
         key="arbml_tn", role="positive", kind="hf",

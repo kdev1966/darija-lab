@@ -174,23 +174,6 @@ CONTRASTS: dict[str, Contrast] = {
         negatives=["omcd", "mac", "dz", "ary"], positives=["tsac", "tunizi", "arbml_tn", "linto"],
         genre_controlled=True, arabic_only=True, strip_entities=True,
     ),
-    "vs_maghreb_llm": Contrast(
-        "tunisien contre maghrébin ET sorties de LLM — le contraste de "
-        "référence, plus le négatif adversarial",
-        negatives=["omcd", "mac", "dz", "ary", "llm_fusha"],
-        positives=["tsac", "arbml_tn", "linto"],
-        genre_controlled=True, arabic_only=True, strip_entities=True,
-        # Idée reprise de `tuni-folk-gemini`, dont la classe négative est la
-        # sortie du modèle même qu'il affine. Ici : de l'arabe écrit par des
-        # LLM à qui on parlait tunisien et qui ont glissé. C'est le registre
-        # du biais nº 7, que ni `ar` (encyclopédique) ni `ary` (marocain) ne
-        # représentent — et 8,7 % de ces blocs passaient le seuil du modèle de
-        # référence.
-        #
-        # Les négatifs sont choisis par PROVENANCE (quels modèles), jamais par
-        # score : sélectionner sur le score ferait réapprendre au nouveau
-        # modèle la frontière de l'ancien, et l'évaluation serait vide.
-    ),
     "vs_maghreb_arabizi": Contrast(
         "tunisien contre marocain et algérien, dans l'alphabet reduit que "
         "l'Arabizi sait exprimer — le modèle à employer sur du texte translittéré",

@@ -141,18 +141,20 @@ SOURCES: dict[str, Source] = {
     ),
     "llm_fusha": Source(
         key="llm_fusha", role="negative", kind="local",
-        locator="produit par `darija-bench export-negatives`",
+        locator="produit par apps/darija-bench/notebooks/colab_negatif_adversarial.ipynb",
         license="sorties de modèles, produites par ce dépôt",
-        note="**Le négatif adversarial.** De l'arabe écrit par des LLM à qui "
-             "l'on parlait tunisien et qui ont glissé — le registre exact du "
-             "biais nº 7, que ni `ar` (encyclopédique) ni `ary` (marocain) ne "
-             "représentent. Mesuré : score médian 0,806 contre 0,789 pour `ar` "
-             "et 0,924 pour `linto`, et **8,7 % passent le seuil** du modèle "
-             "de référence. Idée reprise de `tuni-folk-gemini`, dont la classe "
-             "négative est la sortie du modèle même qu'il affine.\n"
-             "Sélectionné par **provenance** (quels modèles), jamais par score "
-             "— sélectionner sur le score ferait réapprendre au nouveau modèle "
-             "la frontière de l'ancien.",
+        note="**Jeu de validation, PAS un négatif d'entraînement.** De l'arabe "
+             "écrit par des LLM sur des sujets du quotidien — le registre exact "
+             "du biais nº 7, que ni `ar` (encyclopédique) ni `ary` (marocain) "
+             "ne représentent. Mesuré : score médian 0,806 contre 0,789 pour "
+             "`ar` et 0,924 pour `linto`, et **8,7 % passent le seuil** du "
+             "modèle de référence.\n"
+             "L'employer à l'entraînement a été tenté et a échoué : 0,5 % de la "
+             "classe négative après équilibrage, gain nul hors des blocs vus. "
+             "Il en faudrait ~1800. Et surtout, un corpus ne peut pas à la fois "
+             "entraîner et juger : c'est le seul échantillon de ce registre, "
+             "donc sa place est du côté du juge.\n"
+             "N'apparaît dans aucun contraste, et c'est délibéré.",
     ),
     "omcd": Source(
         key="omcd", role="negative", kind="url",

@@ -158,7 +158,7 @@ def test_genre_controlled_contrasts_are_fully_controlled():
     # exprimer, pour scorer du texte translittere. Le controle de genre y est
     # identique, donc il appartient a cette liste.
     assert controlled == {"vs_moroccan_yt", "vs_moroccan_tw", "vs_algerian",
-                          "vs_maghreb", "vs_maghreb_arabizi", "vs_maghreb_llm"}
+                          "vs_maghreb", "vs_maghreb_arabizi"}
     for name in controlled:
         c = B.CONTRASTS[name]
         assert c.positives, f"{name}: positifs non restreints"
@@ -178,15 +178,17 @@ def test_le_negatif_adversarial_est_produit_localement():
     assert src.kind == "local" and src.role == "negative"
 
 
-def test_le_contraste_adversarial_garde_les_negatifs_habituels():
-    """Le negatif LLM s'AJOUTE, il ne remplace pas.
+def test_le_negatif_adversarial_nentraine_aucun_modele():
+    """Il juge, il n'alimente pas — et un corpus ne peut pas faire les deux.
 
-    Seul, il apprendrait « tunisien contre sortie de LLM » et etiquetterait du
-    marocain comme tunisien — le piege que documente le module sources.
+    L'employer a l'entrainement a ete tente : 0,5 % de la classe negative apres
+    equilibrage, gain nul hors des blocs vus (66,7 % -> 60,0 % sur la part
+    tenue a l'ecart, contre 37,8 % -> 16,2 % sur ce qui avait ete vu). C'est le
+    seul echantillon existant de ce registre ; l'y remettre le contaminerait
+    definitivement.
     """
-    c = B.CONTRASTS["vs_maghreb_llm"]
-    assert "llm_fusha" in c.negatives
-    assert {"omcd", "mac", "dz", "ary"} <= set(c.negatives)
+    for nom, c in B.CONTRASTS.items():
+        assert "llm_fusha" not in c.negatives, f"{nom} contamine le jeu de validation"
 
 
 def test_only_the_reference_contrast_mixes_registers():

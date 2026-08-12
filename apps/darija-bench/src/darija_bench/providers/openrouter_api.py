@@ -25,6 +25,12 @@ BASE_URL: str = "https://openrouter.ai/api/v1"
 KEY_VAR: str = "OPENROUTER_API_KEY"
 MAX_TOKENS: int = 4000
 
+#: Repères d'un message d'erreur exploitable : qui, où créer la clé,
+#: et quel extra installer. Les deux manques ont des correctifs différents.
+NOM: str = "openrouter"
+CONSOLE: str = "openrouter.ai/keys"
+EXTRA: str = "openrouter"
+
 #: Un quota journalier épuisé ne se rouvre pas en attendant quelques secondes ;
 #: il faut abandonner le modèle. Voir :class:`RateLimited`.
 _DAILY = re.compile(r"per day|daily|free-models-per-day", re.I)
@@ -34,39 +40,26 @@ _RETRY = re.compile(r"(?:retry|try again) (?:in|after) ([\d.]+)\s*s", re.I)
 
 
 def _client():
-    """Construit le client, ou dit précisément ce qui manque."""
-    import openai  # noqa: PLC0415
+    """Construit le client, ou dit précisément ce qui manque.
 
+    La clé est vérifiée **avant** l'import du SDK : sans cet ordre, une machine
+    sans ``openai`` installé remonte un ``ModuleNotFoundError`` opaque au lieu
+    de « il vous manque telle clé ». Les deux manques ont des correctifs
+    différents, ils doivent donner des messages différents.
+    """
     key = os.environ.get(KEY_VAR)
     if not key:
         raise ProviderError(
-            f"openrouter : aucune clé dans {KEY_VAR}. "
-            "Créez-la sur openrouter.ai/keys, puis exportez-la avant de lancer."
+            f"{NOM} : aucune clé dans {KEY_VAR}. Créez-la sur {CONSOLE}, "
+            "puis mettez-la dans apps/darija-bench/.env avant de lancer."
         )
-    return openai.OpenAI(api_key=key, base_url=BASE_URL)
-
-
-def list_models(free_only: bool = True) -> list[str]:
-    """Catalogue réellement atteignable par la clé.
-
-    Args:
-      free_only: ne garder que les modèles dont le tarif est nul.
-
-    """
-    client = _client()
-    out: list[str] = []
-    for model in client.models.list().data:
-        ident = model.id
-        if not free_only:
-            out.append(ident)
-            continue
-        pricing = (getattr(model, "pricing", None) or {}) if not isinstance(model, dict) else {}
-        gratuit = ident.endswith(":free") or all(
-            float(pricing.get(k, 0) or 0) == 0 for k in ("prompt", "completion")
-        )
-        if gratuit:
-            out.append(ident)
-    return sorted(out)
+    try:
+        import openai  # noqa: PLC0415
+    except ModuleNotFoundError as exc:  # pragma: no cover - dépend de l'install
+        raise ProviderError(
+            f"{NOM} : SDK absent. Installez l'extra — pip install -e '.[{EXTRA}]'"
+        ) from exc
+    return openai.OpenAI(base_url=BASE_URL, api_key=key)
 
 
 @dataclass
@@ -89,9 +82,9 @@ class OpenRouterProvider:
           RateLimited: quota dépassé — momentané ou épuisé.
 
         """
+        client = _client()
         import openai  # noqa: PLC0415
 
-        client = _client()
         messages: list[dict[str, str]] = []
         if system:
             messages.append({"role": "system", "content": system})

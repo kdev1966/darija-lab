@@ -284,3 +284,50 @@ def test_xai_distingue_un_ralentissement_d_un_plafond():
     assert xai_api._DEFINITIF.search("insufficient credits")
     assert xai_api._DEFINITIF.search("quota exceeded")
     assert not xai_api._DEFINITIF.search("temporarily rate-limited upstream")
+
+
+def test_la_cle_manquante_est_signalee_meme_sans_le_sdk(monkeypatch):
+    """CI n'installe aucun SDK, et c'est voulu : le banc doit savoir rejouer un
+    fichier de reponses sans dependance.
+
+    L'adaptateur importait `openai` AVANT de verifier la cle, si bien qu'une
+    machine sans le SDK recevait un `ModuleNotFoundError` opaque au lieu de
+    « il vous manque telle cle ». Les deux manques ont des correctifs
+    differents, ils doivent donner des messages differents. CI a echoue
+    la-dessus le 12 aout.
+    """
+    import builtins
+
+    from darija_bench.providers import ProviderError, build
+
+    vrai_import = builtins.__import__
+
+    def sans_openai(nom, *a, **k):
+        if nom == "openai":
+            raise ModuleNotFoundError("No module named 'openai'")
+        return vrai_import(nom, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", sans_openai)
+    for spec, var in (("xai:grok-4", "XAI_API_KEY"), ("openrouter:x/y:free", "OPENROUTER_API_KEY")):
+        monkeypatch.delenv(var, raising=False)
+        with pytest.raises(ProviderError, match=var):
+            build(spec).generate("مرحبا")
+
+
+def test_le_sdk_manquant_dit_quel_extra_installer(monkeypatch):
+    """Un `ModuleNotFoundError` nu n'apprend rien a qui n'a pas lu le pyproject."""
+    import builtins
+
+    from darija_bench.providers import ProviderError, build
+
+    vrai_import = builtins.__import__
+
+    def sans_openai(nom, *a, **k):
+        if nom == "openai":
+            raise ModuleNotFoundError("No module named 'openai'")
+        return vrai_import(nom, *a, **k)
+
+    monkeypatch.setenv("XAI_API_KEY", "factice")
+    monkeypatch.setattr(builtins, "__import__", sans_openai)
+    with pytest.raises(ProviderError, match=r"\.\[xai\]"):
+        build("xai:grok-4").generate("مرحبا")

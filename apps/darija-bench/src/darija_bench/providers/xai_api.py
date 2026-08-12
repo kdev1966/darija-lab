@@ -35,6 +35,12 @@ BASE_URL: str = "https://api.x.ai/v1"
 KEY_VAR: str = "XAI_API_KEY"
 MAX_TOKENS: int = 4000
 
+#: Repères d'un message d'erreur exploitable : qui, où créer la clé,
+#: et quel extra installer. Les deux manques ont des correctifs différents.
+NOM: str = "xai"
+CONSOLE: str = "console.x.ai"
+EXTRA: str = "xai"
+
 #: Un plafond de facturation ou de compte ne se rouvre pas en attendant
 #: quelques secondes ; il faut abandonner le modèle. Voir :class:`RateLimited`.
 _DEFINITIF = re.compile(r"per day|daily|quota|credit|billing|insufficient", re.I)
@@ -44,15 +50,25 @@ _RETRY = re.compile(r"(?:retry|try again) (?:in|after) ([\d.]+)\s*s", re.I)
 
 
 def _client():
-    """Construit le client, ou dit précisément ce qui manque."""
-    import openai  # noqa: PLC0415
+    """Construit le client, ou dit précisément ce qui manque.
 
+    La clé est vérifiée **avant** l'import du SDK : sans cet ordre, une machine
+    sans ``openai`` installé remonte un ``ModuleNotFoundError`` opaque au lieu
+    de « il vous manque telle clé ». Les deux manques ont des correctifs
+    différents, ils doivent donner des messages différents.
+    """
     key = os.environ.get(KEY_VAR)
     if not key:
         raise ProviderError(
-            f"xai : aucune clé dans {KEY_VAR}. Créez-la sur console.x.ai, "
+            f"{NOM} : aucune clé dans {KEY_VAR}. Créez-la sur {CONSOLE}, "
             "puis mettez-la dans apps/darija-bench/.env avant de lancer."
         )
+    try:
+        import openai  # noqa: PLC0415
+    except ModuleNotFoundError as exc:  # pragma: no cover - dépend de l'install
+        raise ProviderError(
+            f"{NOM} : SDK absent. Installez l'extra — pip install -e '.[{EXTRA}]'"
+        ) from exc
     return openai.OpenAI(base_url=BASE_URL, api_key=key)
 
 
@@ -76,9 +92,9 @@ class XAIProvider:
           ProviderError: tout autre échec, y compris une réponse vide.
 
         """
+        client = _client()
         import openai  # noqa: PLC0415
 
-        client = _client()
         messages: list[dict[str, str]] = []
         if system:
             messages.append({"role": "system", "content": system})

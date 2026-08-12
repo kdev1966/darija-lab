@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -184,8 +185,51 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+#: Nom du fichier de cles, cherche depuis le repertoire courant vers la racine.
+FICHIER_ENV = ".env"
+
+
+def charger_env(depart: Path | None = None) -> list[str]:
+    """Charge `.env` dans l'environnement, sans dependance.
+
+    Le depot range les cles d'API dans `apps/darija-bench/.env` (gitignore),
+    mais **rien ne le lisait** : une campagne entiere de 336 appels a echoue
+    avec « aucune cle dans GEMINI_API_KEY », sans qu'une seule requete parte.
+    Les campagnes precedentes ne marchaient que parce que les variables avaient
+    ete exportees a la main dans le terminal.
+
+    Une variable deja presente dans l'environnement gagne : `.env` est une
+    commodite, pas une autorite.
+
+    Args:
+      depart: repertoire ou commencer la recherche. Defaut : le courant.
+
+    Returns:
+      Les noms des variables effectivement posees.
+
+    """
+    dossier = (depart or Path.cwd()).resolve()
+    for base in (dossier, *dossier.parents):
+        chemin = base / FICHIER_ENV
+        if not chemin.is_file():
+            continue
+        poses = []
+        for ligne in chemin.read_text(encoding="utf-8").splitlines():
+            ligne = ligne.strip()
+            if not ligne or ligne.startswith("#") or "=" not in ligne:
+                continue
+            cle, _, valeur = ligne.partition("=")
+            cle, valeur = cle.strip(), valeur.strip().strip("\"'")
+            if cle and cle not in os.environ:
+                os.environ[cle] = valeur
+                poses.append(cle)
+        return poses
+    return []
+
+
 def main(argv: list[str] | None = None) -> int:
     """Point d'entrée."""
+    charger_env()
     parser = argparse.ArgumentParser(
         prog="darija-bench",
         description="Un LLM repond-il vraiment en tunisien ?",

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -100,6 +101,9 @@ class CollectReport:
 
     calls: int = 0
     abandoned: dict[str, str] = field(default_factory=dict)
+    #: Appels REUSSIS par modele. Zero reussite avant l'abandon distingue
+    #: « ce modele a son quota epuise » de « le COMPTE a son quota epuise ».
+    succeeded: dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
 
 def _call(provider: Provider, prompt: str, system: str | None, *, sleep=time.sleep) -> str:
@@ -203,6 +207,8 @@ def collect(
                     fh.write(json.dumps(record.__dict__, ensure_ascii=False) + "\n")
                     fh.flush()
                     report.calls += 1
+                    if not record.error:
+                        report.succeeded[provider.name] += 1
                     if callable(on_progress):
                         on_progress(record)
             if abandoned:
@@ -293,6 +299,14 @@ def relay(
             conditions=conditions, resume=resume, on_progress=on_progress,
         )
         if provider.name in report.abandoned:
+            # ⚠️ Épuisé DÈS LE PREMIER APPEL = le plafond est celui du COMPTE,
+            # pas du modèle. C'est le cas d'OpenRouter (~50 requêtes par jour,
+            # tous modèles confondus). Continuer la réserve ne fait alors que
+            # dépenser un appel par candidat pour heurter le même mur — ce qui
+            # est arrivé quatre fois de suite le 11 août.
+            if not report.succeeded.get(provider.name):
+                issues[spec] = "quota du compte épuisé — réserve interrompue"
+                break
             issues[spec] = "quota épuisé"
         else:
             issues[spec] = "complet"

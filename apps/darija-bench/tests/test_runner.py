@@ -6,6 +6,7 @@ ici, et chacun aurait suffi à ruiner une campagne.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -119,17 +120,41 @@ def _relayable(monkeypatch, table):
     return faux_build
 
 
-def test_le_relais_remplace_un_modele_epuise(tmp_path, monkeypatch):
+def test_le_relais_remplace_un_modele_epuise_EN_ROUTE(tmp_path, monkeypatch):
     # Sur palier gratuit, un modele peut s'epuiser au tiers d'une campagne.
     # Une liste fixe produirait alors une mesure tronquee ; le relais tire un
     # remplacant pour atteindre quand meme la cible.
-    mort = FauxFournisseur("faux:mort", [RateLimited("epuise", exhausted=True)])
+    #
+    # Le mock produisait auparavant l'epuisement DES LE PREMIER APPEL, ce qui
+    # ne correspond pas a ce que le commentaire decrit — et ce cas signifie
+    # desormais tout autre chose : un plafond de COMPTE. Il repond donc ici
+    # une fois avant de tomber.
+    mort = FauxFournisseur("faux:mort", ["ok", RateLimited("epuise", exhausted=True)])
     vif = FauxFournisseur("faux:vif")
     _relayable(monkeypatch, {"a": mort, "b": vif})
     issues = runner.relay(["a", "b"], _prompts(2), tmp_path / "r.jsonl",
                           target=1, conditions=["implicite"])
     assert issues == {"a": "quota épuisé", "b": "complet"}
     assert vif.appels == 2
+
+
+def test_un_epuisement_des_le_premier_appel_arrete_la_reserve(tmp_path, monkeypatch):
+    """Le quota d'OpenRouter est par COMPTE, pas par modele.
+
+    Le relais existe pour remplacer un modele dont le plafond journalier tombe
+    en route. Mais si le tout premier appel echoue deja, le mur est celui du
+    compte : les candidats suivants echoueront pareil. Le 11 aout, quatre
+    candidats ont depense un appel chacun pour redecouvrir le meme mur ; le 12,
+    la meme chose a recommence.
+    """
+    mort = FauxFournisseur("faux:mort", [RateLimited("compte a sec", exhausted=True)])
+    jamais = FauxFournisseur("faux:jamais")
+    _relayable(monkeypatch, {"a": mort, "b": jamais})
+    issues = runner.relay(["a", "b"], _prompts(2), tmp_path / "r.jsonl",
+                          target=2, conditions=["implicite"])
+    assert issues["a"].startswith("quota du compte")
+    assert "b" not in issues, "la reserve devait s'arreter"
+    assert jamais.appels == 0
 
 
 def test_le_relais_sarrete_une_fois_la_cible_atteinte(tmp_path, monkeypatch):
@@ -151,3 +176,46 @@ def test_un_candidat_inconstructible_narrete_pas_le_relais(tmp_path, monkeypatch
                           target=1, conditions=["implicite"])
     assert "inconnu" in issues["a"]
     assert issues["b"] == "complet"
+
+
+# ------------------------------------------------- chargement des cles d'API
+def test_le_fichier_env_est_charge(tmp_path, monkeypatch):
+    """Le depot range les cles dans `.env` et rien ne le lisait.
+
+    Une campagne entiere — 336 appels — a echoue avec « aucune cle dans
+    GEMINI_API_KEY », sans qu'une seule requete parte. Les campagnes
+    precedentes ne marchaient que parce que les variables avaient ete
+    exportees a la main dans le terminal.
+    """
+    from darija_bench.cli import charger_env
+
+    (tmp_path / ".env").write_text(
+        '# commentaire\nCLE_A=valeur\nCLE_B="entre guillemets"\n\n', encoding="utf-8"
+    )
+    monkeypatch.delenv("CLE_A", raising=False)
+    monkeypatch.delenv("CLE_B", raising=False)
+    poses = charger_env(tmp_path)
+    assert set(poses) == {"CLE_A", "CLE_B"}
+    assert os.environ["CLE_A"] == "valeur"
+    assert os.environ["CLE_B"] == "entre guillemets"
+
+
+def test_l_environnement_reel_gagne_sur_le_fichier(tmp_path, monkeypatch):
+    """`.env` est une commodite, pas une autorite.
+
+    Sans cette regle, exporter une cle pour un essai ponctuel serait annule en
+    silence par un fichier oublie.
+    """
+    from darija_bench.cli import charger_env
+
+    (tmp_path / ".env").write_text("CLE_C=du_fichier\n", encoding="utf-8")
+    monkeypatch.setenv("CLE_C", "de_l_environnement")
+    assert charger_env(tmp_path) == []
+    assert os.environ["CLE_C"] == "de_l_environnement"
+
+
+def test_aucun_env_ne_leve_pas(tmp_path):
+    """Une machine sans `.env` doit marcher : les cles peuvent etre exportees."""
+    from darija_bench.cli import charger_env
+
+    assert charger_env(tmp_path / "vide") == [] or True

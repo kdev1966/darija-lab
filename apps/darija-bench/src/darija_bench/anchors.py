@@ -48,6 +48,29 @@ BAS: float = 0.8292
 #: servir comme ancre.
 ENCYCLOPEDIQUE: float = 0.7860
 
+# --------------------------------------------------------------- dispersion
+# :data:`HAUT` est une **médiane**, pas un plafond — et l'oublier fait lire
+# « 57 % » comme « à moitié tunisien ». Mesuré sur les 432 blocs de
+# ``HkayetErwi``, le corpus humain s'étale lui-même de 5 % à 151 % de position,
+# écart-type 0,038. Un texte à 57 % est donc à un écart-type sous la médiane :
+# bas de la fourchette normale, pas anomalie.
+#
+# C'est la même faute que celle corrigée sur les textes longs — un chiffre
+# unique qui cache une dispersion. Sauf qu'ici la dispersion cachée est celle
+# de l'ancre, pas celle du texte mesuré.
+
+#: 10ᵉ centile du récit humain — position 34 %.
+HUMAIN_P10: float = 0.8596
+
+#: 1ᵉʳ quartile du récit humain — position 80 %.
+HUMAIN_Q1: float = 0.9011
+
+#: 3ᵉ quartile du récit humain — position 122 %.
+HUMAIN_Q3: float = 0.9389
+
+#: Écart-type des scores du récit humain, en score brut.
+HUMAIN_ECART_TYPE: float = 0.0381
+
 
 def position(score: float) -> float:
     """Situe un score entre les deux ancres narratives.
@@ -62,3 +85,40 @@ def position(score: float) -> float:
 
     """
     return (score - BAS) / (HAUT - BAS)
+
+
+def qualify(pos: float) -> str:
+    """Situe une position **par rapport à la dispersion humaine**, en clair.
+
+    Sans ce repère, « 57 % » se lit « à moitié tunisien » alors que 13 % du
+    récit tunisien authentique score plus bas. La phrase rendue ici est ce que
+    la barre montre visuellement.
+
+    Args:
+      pos: sortie de :func:`position`.
+
+    Returns:
+      Une phrase courte, sans jargon.
+
+    """
+    if pos < position(HUMAIN_P10):
+        return "sous le dixième le plus bas du récit humain"
+    if pos < position(HUMAIN_Q1):
+        return "sous la zone typique, mais dans la fourchette du récit humain"
+    if pos <= position(HUMAIN_Q3):
+        return "dans la moitié centrale du récit humain"
+    return "au-dessus des trois quarts du récit humain"
+
+
+def spread() -> dict[str, float]:
+    """Les repères de dispersion, en position, pour l'affichage.
+
+    Returns:
+      ``{"p10", "q1", "q3"}`` — les bornes à dessiner sur la barre.
+
+    """
+    return {
+        "p10": round(position(HUMAIN_P10), 4),
+        "q1": round(position(HUMAIN_Q1), 4),
+        "q3": round(position(HUMAIN_Q3), 4),
+    }

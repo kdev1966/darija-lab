@@ -63,6 +63,10 @@ class Measure:
             "threshold": round(self.model.threshold, 4),
             "anchor_low": anchors.BAS,
             "anchor_high": anchors.HAUT,
+            # `anchor_high` est une MÉDIANE. Sans ces bornes, la barre laisse
+            # lire « 57 % » comme « à moitié tunisien », alors que 13 % du
+            # récit humain authentique score plus bas.
+            "spread": anchors.spread(),
         }
         if not scored.strip():
             out["status"] = "vide"
@@ -82,6 +86,7 @@ class Measure:
             status="mesure",
             score=round(score, 4),
             position=round(anchors.position(score), 4),
+            qualifier=anchors.qualify(anchors.position(score)),
             above_classifier=score >= self.model.threshold,
             n_markers=len(distinct),
             min_markers=MIN_DISTINCT_MARKERS,
@@ -158,8 +163,15 @@ button:disabled{opacity:.5;cursor:default}
 .big{font-size:2.4rem;font-weight:700;line-height:1;margin:0}
 .scale{position:relative;height:12px;background:linear-gradient(90deg,#c9b8a4,#7fb98a);
   border-radius:99px;margin:1.1rem 0 .35rem}
-.pin{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);border-radius:2px}
+.pin{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);border-radius:2px;z-index:2}
+/* La moitie centrale du recit humain. Sans elle, le repere de droite passe
+   pour un plafond alors que c'est une mediane : la moitie du corpus humain
+   est au-dela, jusqu'a 151 %. */
+.band{position:absolute;top:0;height:100%;background:rgba(255,255,255,.34);
+  border-left:1px solid rgba(0,0,0,.28);border-right:1px solid rgba(0,0,0,.28)}
+.p10{position:absolute;top:0;height:100%;width:1px;background:rgba(0,0,0,.28)}
 .ends{display:flex;justify-content:space-between;color:var(--muted);font-size:.8rem}
+.legend{color:var(--muted);font-size:.78rem;margin:.45rem 0 0}
 table{width:100%;border-collapse:collapse;margin-top:.6rem;font-size:.92rem}
 td,th{text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--line)}
 th{color:var(--muted);font-weight:600}
@@ -195,8 +207,9 @@ function render(d){
     Le classifieur ne rend pas de verdict en dessous. Ce n'est pas un échec du
     texte&nbsp;: c'est un texte dont on ne sait rien.</div>`;
 
-  const p=Math.max(-0.35,Math.min(1.35,d.position));
-  const left=((p+0.35)/1.7*100).toFixed(1);
+  const at=v=>(Math.max(-0.35,Math.min(1.35,v))+0.35)/1.7*100;
+  const left=at(d.position).toFixed(1);
+  const s=d.spread;
   const verdict=d.is_tunisian
     ? `<span class="ok">tunisien</span>`
     : `<span class="no">pas assez tunisien</span>`;
@@ -213,8 +226,17 @@ function render(d){
   return `<div class="card">
     <p class="big">${pct(d.position)}</p>
     <p class="sub" style="margin:.3rem 0 0">position entre deux textes humains — ${verdict}</p>
-    <div class="scale"><div class="pin" style="left:${left}%"></div></div>
-    <div class="ends"><span>récit en fusha</span><span>récit tunisien humain</span></div>
+    <div class="scale">
+      <div class="band" style="left:${at(s.q1).toFixed(1)}%;
+        width:${(at(s.q3)-at(s.q1)).toFixed(1)}%"></div>
+      <div class="p10" style="left:${at(s.p10).toFixed(1)}%"></div>
+      <div class="pin" style="left:${left}%"></div>
+    </div>
+    <div class="ends"><span>récit en fusha</span><span>médiane du récit tunisien humain</span></div>
+    <p class="legend">La zone claire est la <strong>moitié centrale</strong> du récit tunisien
+      humain (${pct(s.q1)}–${pct(s.q3)}), le trait fin son dixième le plus bas (${pct(s.p10)}).
+      Le repère de droite est une médiane, pas un plafond.<br>
+      Ce texte est <strong>${d.qualifier}</strong>.</p>
     <table>
       <tr><th>score brut</th><td>${d.score}
         <span class="hint">(seuil ${d.threshold})</span></td></tr>

@@ -6,6 +6,7 @@ Trois sous-commandes, qui suivent la séparation collecte / mesure ::
     darija-bench run --model anthropic:claude-opus-5 ...  # collecter (payant)
     darija-bench report --replies replies.jsonl ...       # mesurer (gratuit)
     darija-bench serve --dialect-model ...                # interface locale
+    darija-bench triage --input corpus.jsonl ...          # trier une pile
 
 ``report`` ne touche à aucune API : il se relance autant de fois qu'on veut,
 y compris après avoir modifié le scorer.
@@ -14,6 +15,7 @@ y compris après avoir modifié le scorer.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -129,6 +131,30 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_triage(args: argparse.Namespace) -> int:
+    """Trie une pile de textes."""
+    from .triage import judge, read_documents, summarise  # noqa: PLC0415
+
+    model = DialectModel.load(args.dialect_model)
+    try:
+        docs = list(read_documents(Path(args.input), args.field))
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"erreur : {exc}", file=sys.stderr)
+        return 2
+    if args.limit:
+        docs = docs[: args.limit]
+
+    verdicts = [judge(texte, model, ident=ident) for ident, texte in docs]
+    print(summarise(verdicts))
+
+    if args.out:
+        with Path(args.out).open("w", encoding="utf-8") as fh:
+            for v in verdicts:
+                fh.write(json.dumps(v.as_dict(), ensure_ascii=False) + "\n")
+        print(f"\nverdicts ecrits dans {args.out}")
+    return 0
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     """Ouvre l'interface locale."""
     from .web import serve  # noqa: PLC0415 - import tardif : pas de coût si inutilisé
@@ -201,6 +227,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_serve.add_argument("--port", type=int, default=8000)
     p_serve.set_defaults(fn=_cmd_serve)
+
+    p_triage = sub.add_parser("triage", help="trier une pile de textes")
+    p_triage.add_argument("--input", required=True, help="fichier .jsonl/.txt/.csv, ou dossier")
+    p_triage.add_argument("--field", default="text", help="colonne de texte (jsonl/csv)")
+    p_triage.add_argument(
+        "--dialect-model", required=True, help="chemin du modele .json.gz de darija-core"
+    )
+    p_triage.add_argument("--out", help="ecrire un verdict par document, en jsonl")
+    p_triage.add_argument("--limit", type=int, help="n'examiner que les N premiers documents")
+    p_triage.set_defaults(fn=_cmd_triage)
 
     args = parser.parse_args(argv)
     return int(args.fn(args))

@@ -29,7 +29,7 @@ from darija.dialect import DialectModel
 from darija.normalize import Level, normalize, script_ratio
 
 from . import anchors
-from .scoring import MIN_DISTINCT_MARKERS, prepare
+from .scoring import MIN_DISTINCT_MARKERS, blocks, prepare
 
 #: Au-delà de cette longueur, un score unique est une moyenne qui lisse la
 #: variation interne. Les ancres ayant été calculées sur des blocs d'environ
@@ -110,12 +110,10 @@ class Measure:
         sans qu'on le voie. Le découpage rétablit ce que la moyenne cachait, et
         remet la mesure à la même échelle que les repères.
         """
-        from darija.data.assemble import chunk  # noqa: PLC0415
-
-        blocks = chunk(text.splitlines())
-        if len(blocks) < 2:
+        decoupe = blocks(text)
+        if len(decoupe) < 2:
             return {}
-        scores = sorted(self.model.score(b) for b in blocks)
+        scores = sorted(self.model.score(b) for b in decoupe)
         mid = len(scores) // 2
         median = scores[mid] if len(scores) % 2 else (scores[mid - 1] + scores[mid]) / 2
         return {

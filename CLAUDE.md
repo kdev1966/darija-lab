@@ -124,7 +124,31 @@ jamais vues.
   l'élimine → **0 bloc**. Le modèle ignore la forme écrite majoritaire du
   tunisien. C'est le trou le plus net.
 - **Le registre littéraire ancien.** La poésie populaire n'est reconnue
-  tunisienne que dans 43 % des cas. Ce registre n'est dans aucune classe.
+  tunisienne que dans 42,3 % des cas. Ce registre n'est dans aucune classe.
+
+  **Ce chiffre mêle deux populations**, et `darija-bench triage` les sépare :
+
+  | genre | n | reconnu tunisien | position médiane |
+  |---|---|---|---|
+  | malzuma | 1006 | 59,7 % | 25 % |
+  | qasim | 385 | 41,9 % | 20 % |
+  | song | 359 | 32,3 % | 32 % |
+  | **prose** | **114** | **0 %** | **−18 %** |
+
+  Les entrées `prose` ont un profil de métadonnées **disjoint** des poèmes :
+  100 % ont un titre et 0 % une prosodie (`gharad`, `wazn_sub`, `modes`,
+  `is_usul`), là où les poèmes ont l'inverse. Ce n'est pas de la poésie
+  dialectale, et 91 % passent sous le seuil. Les filtrer relève la mesure.
+  Leur fonction éditoriale exacte n'a pas été établie — les indices lexicaux
+  d'un appareil critique (`تحقيق`, `الطبعة`) n'y sont pas plus fréquents que
+  dans les poèmes.
+
+  Deux causes distinctes expliquent le reste, que le taux global confondait :
+  le **classifieur** rejette 20 à 27 % des vraies formes poétiques (registre
+  absent de son entraînement), tandis que les **marqueurs** recalent les
+  formes courtes — `song` a 65 % de textes sans marqueur discriminant pour
+  89 mots de médiane, alors que sa position médiane est la meilleure du
+  corpus. Le classifieur les reconnaît, la règle les rejette.
 
 ---
 

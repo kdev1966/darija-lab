@@ -18,7 +18,7 @@ c'est ce qui distingue ce banc d'un pari sur des modèles tunisiens à venir.
 cd apps/darija-bench
 python3.12 -m venv .venv
 .venv/bin/pip install -e ../../packages/darija-core -e ".[dev,anthropic]"
-.venv/bin/python -m pytest -q      # 22 tests
+.venv/bin/python -m pytest -q      # 59 tests
 .venv/bin/ruff check src tests
 ```
 
@@ -47,6 +47,39 @@ interrompue reprend là où elle s'est arrêtée.
 L'identifiant de modèle est obligatoire pour OpenAI et Google : leurs
 catalogues ne sont pas vérifiables depuis ce dépôt, et une chaîne devinée
 produirait un 404 opaque au milieu d'une campagne.
+
+## Trier une pile de textes
+
+L'usage pour lequel l'instrument est le mieux placé : séparer le tunisien du
+marocain, de l'algérien et de la fusha dans un corpus. Aucun appel d'API.
+
+```bash
+darija-bench triage --input corpus.jsonl --field text \
+  --dialect-model ../../packages/darija-core/models/vs_maghreb.json.gz \
+  --out verdicts.jsonl
+```
+
+Accepte `.jsonl`, `.csv`, `.txt` (une ligne par document) ou un dossier.
+Chaque document est découpé en blocs de 60 mots — la taille sur laquelle le
+seuil et les repères ont été établis — et jugé sur la **médiane de ses blocs**.
+
+Un document trop court ressort `indecidable`, jamais `autre` : un texte bref
+n'est pas un texte étranger, et l'amalgame fausserait le décompte.
+
+Mesuré : 2 028 textes de poésie triés en 4,5 secondes. Le résultat a révélé
+que le corpus mêle deux populations — voir la section « registre littéraire »
+de `CLAUDE.md`.
+
+## Interface locale
+
+```bash
+darija-bench serve \
+  --dialect-model ../../packages/darija-core/models/vs_maghreb.json.gz
+```
+
+Coller un texte, voir sa position entre les deux ancres humaines, les
+marqueurs reconnus un par un, et la dispersion sur les textes longs.
+
 
 ---
 
@@ -90,8 +123,8 @@ servi de premier positif de référence. Il a démenti le diagnostic :
 | minimum de marqueurs exigé | tunisien authentique conservé | faux positifs fusha |
 |---|---|---|
 | classifieur seul | 94,0 % | 2 / 6 |
-| **≥ 1 (règle actuelle)** | **87,0 %** | 1 / 6 |
-| ≥ 2 (règle initiale) | 63,2 % | 0 / 6 |
+| ≥ 1, tous marqueurs | 87,0 % | 1 / 6 |
+| ≥ 2, tous marqueurs | 63,2 % | 0 / 6 |
 
 Exiger deux marqueurs rejetait **37 % du tunisien réel** pour éviter un unique
 faux positif sur six textes écrits par l'auteur du banc. C'était calibrer
@@ -101,6 +134,26 @@ Le classifieur, lui, reconnaît le récit authentique à 94 %, avec seulement
 6,9 % dans la bande d'indécision. **Il n'est donc pas aveugle au registre
 narratif** — ce sont les sorties de modèles qui sont réellement moins
 tunisiennes que du tunisien humain.
+
+### Puis la mesure sur corpus a corrigé la règle une seconde fois
+
+Compter les dix-neuf marqueurs la rendait inopérante : elle déclenchait sur
+86,6 % du tunisien et **86,0 % du marocain**. Trois d'entre eux sont aussi
+fréquents ailleurs qu'en tunisien, voire plus — le préfixe `ن-` note le *je*
+en tunisien et le *nous* en arabe classique (66,6 % de la fusha), `اللي` est
+**cinq fois plus fréquent en marocain**, `علاش` aussi.
+
+La décision ne compte donc que `markers.DISCRIMINANT`, les seize restants :
+
+| règle « ≥ 1 marqueur » | tunisien | marocain | fusha | écart |
+|---|---|---|---|---|
+| les dix-neuf | 86,6 % | 86,0 % | 67,1 % | **+0,6 %** |
+| **les seize** | 66,8 % | 37,0 % | **2,0 %** | **+29,8 %** |
+
+Sur la vérité terrain, la règle conjointe conserve **76,9 %** au lieu de
+88,0 % : onze points de rappel contre soixante-cinq de précision, sur le
+registre où le classifieur trébuche. Les marqueurs écartés restent
+**affichés** — ils expliquent, ils ne décident pas.
 
 ### Réserves, à lire avant de citer un chiffre
 

@@ -138,6 +138,28 @@ def prepare(reply: str) -> tuple[str, bool]:
     return reply, False
 
 
+def blocks(text: str, target: int = 60) -> list[str]:
+    """Découpe un texte en blocs de la taille sur laquelle les repères sont posés.
+
+    ``assemble.chunk`` regroupe des **lignes**. Un document sans retour à la
+    ligne lui apparaît donc comme un bloc unique, si long soit-il — et son
+    score devient une moyenne qui lisse toute variation interne, comparée à
+    des repères établis sur 60 mots. On pré-découpe donc les lignes trop
+    longues avant de regrouper.
+    """
+    from darija.data.assemble import chunk  # noqa: PLC0415
+
+    lignes: list[str] = []
+    for ligne in text.splitlines():
+        mots = ligne.split()
+        if len(mots) <= target:
+            lignes.append(ligne)
+            continue
+        for i in range(0, len(mots), target):
+            lignes.append(" ".join(mots[i : i + target]))
+    return chunk(lignes, target_words=target)
+
+
 def count_words(text: str) -> int:
     """Compte les mots comme le fait le classifieur, après normalisation."""
     return len(normalize(text, Level.STANDARD).split())

@@ -182,6 +182,9 @@ th{color:var(--muted);font-weight:600}
 .spark{display:flex;align-items:flex-end;gap:2px;height:50px;margin:.4rem 0 .2rem;
   padding:0 .1rem;border-bottom:1px solid var(--line)}
 .spark i{flex:1 1 auto;min-width:3px;border-radius:2px 2px 0 0}
+/* Grise, mais pas cachee : un marqueur non discriminant reste une information
+   sur le texte, il ne pese simplement pas dans la decision. */
+.off td{color:var(--muted)}
 .warn{border-left:3px solid var(--accent);padding-left:.9rem;color:var(--muted)}
 details{margin-top:.9rem} summary{cursor:pointer;color:var(--muted);font-size:.9rem}
 </style></head><body><div class="wrap">
@@ -214,11 +217,15 @@ function render(d){
     ? `<span class="ok">tunisien</span>`
     : `<span class="no">pas assez tunisien</span>`;
 
+  // Le tableau listait les 19 marqueurs, la ligne « marqueurs distincts » n'en
+  // comptait que les discriminants : 5 lignes affichees pour un compte de 3,
+  // sans aucun moyen de savoir lesquels. `decides` etait deja dans la reponse.
   const mk=d.markers.length
-    ? d.markers.map(m=>`<tr><td>${m.gloss}</td>
+    ? d.markers.map(m=>`<tr class="${m.decides?"":"off"}"><td>${m.gloss}</td>
         <td><span class="tag">${m.category}</span></td>
+        <td>${m.decides?"oui":"non"}</td>
         <td>${m.count}</td></tr>`).join("")
-    : `<tr><td colspan="3" class="hint">aucun marqueur tunisien détecté</td></tr>`;
+    : `<tr><td colspan="4" class="hint">aucun marqueur tunisien détecté</td></tr>`;
 
   const cs=Object.entries(d.codeswitch).filter(([,v])=>v>0)
     .map(([k,v])=>`${k} ${pct(v)}`).join(" · ")||"—";
@@ -240,8 +247,9 @@ function render(d){
     <table>
       <tr><th>score brut</th><td>${d.score}
         <span class="hint">(seuil ${d.threshold})</span></td></tr>
-      <tr><th>marqueurs distincts</th><td>${d.n_markers}
-        <span class="hint">(minimum ${d.min_markers})</span></td></tr>
+      <tr><th>marqueurs qui décident</th><td>${d.n_markers}
+        <span class="hint">(minimum ${d.min_markers}, sur ${d.markers.length}
+        reconnus)</span></td></tr>
       <tr><th>mots</th><td>${d.n_words}</td></tr>
       <tr><th>alternance codique</th><td>${cs}</td></tr>
     </table>
@@ -264,7 +272,7 @@ function render(d){
       approximative&nbsp;: lisez ce score comme un indice.
       <div class="ar" dir="rtl" style="margin-top:.4rem">${d.transliteration}</div></div>`:""}
     <details open><summary>marqueurs reconnus</summary>
-      <table><tr><th>marqueur</th><th>type</th><th>n</th></tr>${mk}</table>
+      <table><tr><th>marqueur</th><th>type</th><th>décide&nbsp;?</th><th>n</th></tr>${mk}</table>
     </details>
   </div>`;
 }

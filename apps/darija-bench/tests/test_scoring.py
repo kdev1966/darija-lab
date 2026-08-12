@@ -142,3 +142,57 @@ def test_les_marqueurs_ne_decident_jamais_seuls(model):
     assert verdict.n_markers is not None and verdict.n_markers >= 2
     assert verdict.is_tunisian is (verdict.above_classifier and True)
     assert verdict.explanation
+
+
+# ------------------- aiguillage : quel classifieur pour quelle ecriture
+class _FauxModele:
+    """Modele scriptable, pour eprouver l'aiguillage sans corpus."""
+
+    min_words = 25
+
+    def __init__(self, nom, score=0.9, threshold=0.5):
+        self.nom, self._score, self.threshold = nom, score, threshold
+        self.vus = []
+
+    def score(self, texte):
+        self.vus.append(texte)
+        return self._score
+
+    def predict(self, _texte):
+        return ("tunisien", self._score)
+
+
+def test_le_texte_arabe_reste_sur_le_modele_de_reference():
+    ref, az = _FauxModele("ref"), _FauxModele("arabizi")
+    s = scoring.Scorer(ref, az)
+    s.score("برشا باهي", transliterated=False)
+    assert ref.vus and not az.vus
+
+
+def test_le_texte_translittere_part_sur_le_modele_replie():
+    # Le latin ne distingue pas س/ص ni ت/ط : un modele entraine sur de l'arabe
+    # complet voit des formes qu'il n'a jamais rencontrees. Mesure sur TUNIZI
+    # translittere : 77 % de blocs reconnus avec le modele de reference,
+    # 87 % avec le modele replie.
+    ref, az = _FauxModele("ref"), _FauxModele("arabizi")
+    s = scoring.Scorer(ref, az)
+    s.score("صاحبي", transliterated=True)
+    assert az.vus and not ref.vus
+
+
+def test_le_texte_est_replie_avant_scoring():
+    # Replier d'un seul cote creuserait l'ecart au lieu de le combler : le
+    # modele a ete entraine dans l'alphabet reduit, l'entree doit y etre aussi.
+    az = _FauxModele("arabizi")
+    scoring.Scorer(_FauxModele("ref"), az).score("صاحبي طو", transliterated=True)
+    assert "ص" not in az.vus[0] and "ط" not in az.vus[0]
+
+
+def test_sans_modele_arabizi_tout_passe_par_le_principal():
+    # Retrocompatibilite : le drapeau est optionnel, l'absence rend le
+    # comportement d'avant.
+    ref = _FauxModele("ref")
+    s = scoring.Scorer(ref)
+    s.score("chnowa", transliterated=True)
+    assert len(ref.vus) == 1
+    assert "ص" not in ref.vus[0]  # aucun repli applique

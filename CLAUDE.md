@@ -147,11 +147,30 @@ jamais vues.
   Mesuré sur TUNIZI : les blocs reconnus tunisiens passent de **47 % à 77 %**,
   la position médiane de 8 % à 31 %, et le tri du corpus de 0 % à **76,6 %**.
 
-  Le contournement reste un contournement : le classifieur n'a toujours jamais
-  vu d'Arabizi, et l'ambiguïté brève/longue est irréductible sans dictionnaire
-  (`gal` → `ڨل` au lieu de `ڨال`). La voie directe — entraîner sur de
-  l'Arabizi — reste bloquée faute de négatif maghrébin propre en écriture
-  latine ; voir le contraste `vs_moroccan_latin` et son avertissement.
+  **Puis l'alphabet réduit.** Ce que le latin ne peut pas noter — `س` contre
+  `ص`, `ت` contre `ط`, `ا` contre `ة` — est confondu **des deux côtés** :
+  corpus d'entraînement et texte translittéré. Le contraste
+  `vs_maghreb_arabizi` est identique au contraste de référence, à ce repli
+  près.
+
+  ```
+  source                 vs_maghreb   vs_maghreb_arabizi
+  linto (positif)            96,3 %             96,3 %
+  tsac (positif)             86,7 %             87,6 %
+  arbml_tn (positif)         84,6 %             84,9 %
+  négatifs                 0-0,7 %            0-1,3 %
+  TUNIZI translittéré          77 %               87 %
+  ```
+
+  Les positifs sont intacts, les négatifs cèdent moins d'un point. Passer le
+  modèle par `--arabizi-model` porte le tri de TUNIZI à **86,7 %**, contre 0 %
+  il y a deux jours.
+
+  Ce qui reste : le classifieur n'a toujours jamais vu d'Arabizi natif, et
+  l'ambiguïté brève/longue est irréductible sans dictionnaire (`gal` → `ڨل` au
+  lieu de `ڨال`). La voie directe — entraîner **sur** de l'Arabizi — reste
+  bloquée faute de négatif maghrébin propre en écriture latine ; voir le
+  contraste `vs_moroccan_latin` et son avertissement.
 - **Le registre littéraire ancien.** La poésie populaire n'est reconnue
   tunisienne que dans 42,3 % des cas. Ce registre n'est dans aucune classe.
 

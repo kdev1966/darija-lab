@@ -25,6 +25,7 @@ from . import prompts as prompts_mod
 from . import report as report_mod
 from .providers import ProviderError, build
 from .runner import CONDITIONS, Reply, collect, load_replies, relay
+from .scoring import Scorer
 
 
 def _cmd_prompts(args: argparse.Namespace) -> int:
@@ -93,6 +94,22 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _scorer(args: argparse.Namespace) -> Scorer:
+    """Construit le scorer, avec le modele Arabizi s'il est fourni."""
+    arabizi = DialectModel.load(args.arabizi_model) if args.arabizi_model else None
+    return Scorer(DialectModel.load(args.dialect_model), arabizi)
+
+
+def _arabizi_option(parser: argparse.ArgumentParser) -> None:
+    """Ajoute le drapeau du modele Arabizi."""
+    parser.add_argument(
+        "--arabizi-model",
+        help="modele entraine dans l'alphabet reduit (contraste vs_maghreb_arabizi), "
+        "employe pour le texte translittere. Sans lui, tout passe par "
+        "--dialect-model : 77 %% de TUNIZI reconnu au lieu de 87 %%.",
+    )
+
+
 def _cmd_report(args: argparse.Namespace) -> int:
     """Mesure des réponses déjà collectées."""
     path = Path(args.replies)
@@ -100,15 +117,15 @@ def _cmd_report(args: argparse.Namespace) -> int:
         print(f"erreur : {path} introuvable — lancez d'abord `darija-bench run`", file=sys.stderr)
         return 2
 
-    model = DialectModel.load(args.dialect_model)
+    model = _scorer(args)
     replies = load_replies(path)
     verdicts = report_mod.score_all(replies, model)
     print(
         report_mod.render(
-            report_mod.aggregate(replies, verdicts, model.threshold),
+            report_mod.aggregate(replies, verdicts, model.model.threshold),
             report_mod.paired_shifts(verdicts),
             report_mod.by_register(verdicts, prompts_mod.load()),
-            model.threshold,
+            model.model.threshold,
         )
     )
 
@@ -120,11 +137,11 @@ def _cmd_report(args: argparse.Namespace) -> int:
         for v in verdicts:
             if not v.scorable or v.score is None:
                 continue
-            if abs(v.score - model.threshold) >= report_mod.BORDERLINE:
+            if abs(v.score - model.model.threshold) >= report_mod.BORDERLINE:
                 continue
             print(
                 f"\n  {v.model}  {v.condition}  {v.prompt_id}"
-                f"  score={v.score}  ecart={v.score - model.threshold:+.4f}"
+                f"  score={v.score}  ecart={v.score - model.model.threshold:+.4f}"
                 f"  marqueurs={v.n_markers}"
             )
             print("  " + v.explanation.replace("\n", "\n  "))
@@ -135,7 +152,7 @@ def _cmd_triage(args: argparse.Namespace) -> int:
     """Trie une pile de textes."""
     from .triage import group_documents, judge, read_documents, summarise  # noqa: PLC0415
 
-    model = DialectModel.load(args.dialect_model)
+    model = _scorer(args)
     try:
         docs = list(read_documents(Path(args.input), args.field))
     except (FileNotFoundError, ValueError) as exc:
@@ -220,6 +237,7 @@ def main(argv: list[str] | None = None) -> int:
     p_report.add_argument(
         "--dialect-model", required=True, help="chemin du modele .json.gz de darija-core"
     )
+    _arabizi_option(p_report)
     p_report.add_argument(
         "--details", action="store_true", help="detailler les reponses jugees non tunisiennes"
     )
@@ -238,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
     p_triage.add_argument(
         "--dialect-model", required=True, help="chemin du modele .json.gz de darija-core"
     )
+    _arabizi_option(p_triage)
     p_triage.add_argument("--out", help="ecrire un verdict par document, en jsonl")
     p_triage.add_argument(
         "--group",

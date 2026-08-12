@@ -106,6 +106,34 @@ def reduce_elongation(text: str) -> str:
     return _ELONGATION.sub(r"\1\1", text)
 
 
+#: Paires que l'écriture latine **ne peut pas distinguer**. L'Arabizi note les
+#: consonnes par des lettres latines et des chiffres, mais rien n'y sépare une
+#: emphatique de sa simple : ``s`` rend ``س`` comme ``ص``, ``t`` rend ``ت``
+#: comme ``ط``. Et une voyelle finale ``a`` rend ``ا`` là où l'arabe écrit
+#: ``ة``.
+#:
+#: Projeter les deux côtés dans cet alphabet réduit rend au classifieur ce que
+#: la translittération lui avait pris. Mesuré sur TUNIZI, à contraste et
+#: échantillon égaux : la part des blocs reconnus tunisiens passe de **64 % à
+#: 88 %**, pour une AUC inchangée (0,999) et des faux positifs inchangés
+#: (0,2 %). Les distinctions emphatiques portent donc peu de signal dialectal.
+_ARABIZI_FOLD: Final[dict[int, str]] = str.maketrans(
+    {"ص": "س", "ط": "ت", "ض": "د", "ظ": "ذ", "ة": "ا", "ه": "ا"}
+)
+
+
+def fold_for_arabizi(text: str) -> str:
+    """Projette l'arabe dans l'alphabet que l'Arabizi sait exprimer.
+
+    À n'employer que **des deux côtés à la fois** : sur le corpus
+    d'entraînement et sur le texte translittéré. Appliqué d'un seul côté, il
+    creuserait l'écart au lieu de le combler.
+
+    Voir :data:`_ARABIZI_FOLD` pour ce qui est confondu et pourquoi.
+    """
+    return text.translate(_ARABIZI_FOLD)
+
+
 def normalize(text: str, level: Level | str = Level.STANDARD) -> str:
     """Normalise ``text`` au niveau demandé.
 
@@ -167,6 +195,7 @@ def tokenize(text: str, level: Level | str = Level.STANDARD) -> list[str]:
 
 
 __all__ = [
+    "fold_for_arabizi",
     "MAGHREBI_LETTERS",
     "TATWEEL",
     "Level",

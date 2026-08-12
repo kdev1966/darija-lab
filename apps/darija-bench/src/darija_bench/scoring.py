@@ -51,7 +51,7 @@ from dataclasses import asdict, dataclass, field
 
 from darija import arabizi, codeswitch, markers
 from darija.dialect import DialectModel
-from darija.normalize import Level, normalize, script_ratio
+from darija.normalize import Level, fold_for_arabizi, normalize, script_ratio
 
 #: Part de caractères latins au-delà de laquelle on tente la translittération.
 #: Le seuil est haut à dessein : une réponse arabe contenant deux mots français
@@ -118,6 +118,39 @@ class Verdict:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class Scorer:
+    """Choisit le classifieur selon l'écriture d'origine du texte.
+
+    Le latin ne distingue pas ``س``/``ص`` ni ``ت``/``ط`` : un modèle entraîné
+    sur de l'arabe complet voit donc, dans du texte translittéré, des formes
+    qu'il n'a jamais rencontrées. Un modèle entraîné dans l'alphabet réduit
+    voit la même confusion à l'entraînement qu'à l'usage.
+
+    Mesuré sur TUNIZI translittéré : 77 % de blocs reconnus avec le modèle de
+    référence, **87 %** avec le modèle replié. Les positifs en écriture arabe
+    sont inchangés (96,3 %, 87,6 %, 84,9 %) et les négatifs cèdent moins d'un
+    point.
+
+    ``arabizi`` reste optionnel : sans lui, tout passe par ``model``, ce qui
+    est le comportement d'avant.
+    """
+
+    model: DialectModel
+    arabizi: DialectModel | None = None
+
+    def for_text(self, transliterated: bool) -> DialectModel:
+        """Le modèle à employer."""
+        return self.arabizi if (transliterated and self.arabizi) else self.model
+
+    def score(self, text: str, *, transliterated: bool) -> tuple[float, float]:
+        """Rend ``(score, seuil)`` en repliant le texte si le modèle l'attend."""
+        model = self.for_text(transliterated)
+        if model is self.arabizi:
+            text = fold_for_arabizi(text)
+        return model.score(text), model.threshold
+
+
 def prepare(reply: str) -> tuple[str, bool]:
     """Ramène une réponse à une forme que le classifieur peut lire.
 
@@ -167,7 +200,7 @@ def count_words(text: str) -> int:
 
 def evaluate(
     reply: str,
-    model: DialectModel,
+    model: DialectModel | Scorer,
     *,
     prompt_id: str,
     model_name: str,
@@ -185,8 +218,10 @@ def evaluate(
       script: écriture du prompt d'origine, pour séparer les agrégats.
 
     """
+    scorer = model if isinstance(model, Scorer) else Scorer(model)
     text, translit = prepare(reply)
     n_words = count_words(text)
+    base = scorer.for_text(translit)
 
     common = {
         "prompt_id": prompt_id,
@@ -199,17 +234,17 @@ def evaluate(
 
     if not text:
         return Verdict(**common, scorable=False, skipped="réponse vide")
-    if n_words < model.min_words:
+    if n_words < base.min_words:
         return Verdict(
             **common,
             scorable=False,
-            skipped=f"trop court ({n_words} mots, minimum {model.min_words})",
+            skipped=f"trop court ({n_words} mots, minimum {base.min_words})",
             script_ratio=dict(script_ratio(text)),
         )
 
-    predicted = model.predict(text)
-    score = model.score(text)
-    above = score >= model.threshold
+    predicted = base.predict(text)
+    score, seuil = scorer.score(text, transliterated=translit)
+    above = score >= seuil
     # Seuls les marqueurs discriminants entrent dans la décision. Compter
     # les dix-neuf rendait la règle inopérante : 86,6 % du tunisien mais
     # 86,0 % du marocain. Voir markers.DISCRIMINANT.

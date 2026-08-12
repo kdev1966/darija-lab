@@ -70,6 +70,12 @@ class Contrast:
         l'entraînement. Sans ce filtre, ``مغرب`` et ``تونسي`` figurent parmi les
         traits les plus lourds : le modèle classe alors le sujet autant que la
         langue.
+      fold_arabizi: projeter les deux classes dans l'alphabet que l'Arabizi
+        sait exprimer (:func:`darija.normalize.fold_for_arabizi`). Destiné aux
+        modèles qui scoreront du texte **translittéré** : le latin ne distingue
+        pas ``س``/``ص`` ni ``ت``/``ط``, et l'entraînement doit voir la même
+        confusion que l'entrée. Mesuré : 64 % → 88 % de TUNIZI reconnu, à AUC
+        et faux positifs inchangés.
       latin_only: le symétrique, pour les contrastes en Arabizi. Sans lui, un
         contraste en écriture latine laisserait entrer des lignes en alphabet
         arabe et le modèle apprendrait l'alphabet — le biais nº 2, dans
@@ -87,6 +93,7 @@ class Contrast:
     genre_controlled: bool = False
     arabic_only: bool = False
     latin_only: bool = False
+    fold_arabizi: bool = False
     strip_entities: bool = False
 
 
@@ -166,6 +173,19 @@ CONTRASTS: dict[str, Contrast] = {
         "côtés — le contraste de référence",
         negatives=["omcd", "mac", "dz", "ary"], positives=["tsac", "tunizi", "arbml_tn", "linto"],
         genre_controlled=True, arabic_only=True, strip_entities=True,
+    ),
+    "vs_maghreb_arabizi": Contrast(
+        "tunisien contre marocain et algérien, dans l'alphabet reduit que "
+        "l'Arabizi sait exprimer — le modèle à employer sur du texte translittéré",
+        negatives=["omcd", "mac", "dz", "ary"],
+        positives=["tsac", "arbml_tn", "linto"],
+        genre_controlled=True, arabic_only=True, strip_entities=True,
+        fold_arabizi=True,
+        # Identique au contraste de référence, à un détail près : les deux
+        # classes sont projetées dans l'alphabet que le latin peut noter. Sans
+        # ça, le classifieur voit à l'entraînement des distinctions que la
+        # translittération lui retire à l'usage — et 24 points de TUNIZI se
+        # perdent dans l'écart.
     ),
     "vs_moroccan_latin": Contrast(
         "tunisien contre marocain, en Arabizi des deux côtés — le premier "
@@ -327,6 +347,12 @@ def build(
     if spec.strip_entities:
         pos_raw = {k: [clean_for_training(x) for x in v] for k, v in pos_raw.items()}
         neg_raw = {k: [clean_for_training(x) for x in v] for k, v in neg_raw.items()}
+
+    if spec.fold_arabizi:
+        from ..normalize import fold_for_arabizi  # noqa: PLC0415
+
+        pos_raw = {k: [fold_for_arabizi(x) for x in v] for k, v in pos_raw.items()}
+        neg_raw = {k: [fold_for_arabizi(x) for x in v] for k, v in neg_raw.items()}
 
     if spec.arabic_only or spec.latin_only:
         keep = _arabic_lines if spec.arabic_only else _latin_lines

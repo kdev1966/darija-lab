@@ -49,7 +49,7 @@ from darija import markers
 from darija.dialect import DialectModel
 
 from . import anchors
-from .scoring import MIN_DISTINCT_MARKERS, blocks, prepare
+from .scoring import MIN_DISTINCT_MARKERS, Scorer, blocks, prepare
 
 #: Extensions reconnues en entrée.
 SUFFIXES = (".jsonl", ".txt", ".csv")
@@ -166,7 +166,11 @@ def group_documents(
 
 
 def judge(
-    text: str, model: DialectModel, *, ident: str = "", strict: bool = False
+    text: str,
+    model: DialectModel | Scorer,
+    *,
+    ident: str = "",
+    strict: bool = False,
 ) -> Verdict:
     """Trie un document.
 
@@ -186,17 +190,20 @@ def judge(
     # dans l'application. L'oublier envoyait de l'Arabizi brut au classifieur,
     # qui n'en a jamais vu : TUNIZI — une source POSITIVE — ressortait à 0 %
     # de tunisien et une position de −41 %.
+    scorer = model if isinstance(model, Scorer) else Scorer(model)
     scored, translit = prepare(text)
     n_words = len(scored.split())
     decoupe = blocks(scored)
     if not decoupe:
         return Verdict(ident, n_words, 0, "indecidable", transliterated=translit)
 
-    scores = [model.score(b) for b in decoupe]
+    paires = [scorer.score(b, transliterated=translit) for b in decoupe]
+    scores = [s for s, _ in paires]
+    seuil = paires[0][1]
     median = statistics.median(scores)
     distinct = len({m.marker for m in markers.find(scored)} & markers.DISCRIMINANT)
-    tunisien = [s for s in scores if s >= model.threshold]
-    ok = median >= model.threshold and (not strict or distinct >= MIN_DISTINCT_MARKERS)
+    tunisien = [s for s in scores if s >= seuil]
+    ok = median >= seuil and (not strict or distinct >= MIN_DISTINCT_MARKERS)
     return Verdict(
         ident=ident,
         n_words=n_words,

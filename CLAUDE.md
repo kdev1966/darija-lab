@@ -85,6 +85,28 @@ Le classifieur, lui, reconnaît le récit authentique à 94 % avec 6,9 %
 d'indécision : il n'est pas aveugle au registre narratif. Ce sont les sorties
 de LLM qui sont réellement moins tunisiennes que du tunisien humain.
 
+**⚠️ Ce 94 % était gonflé, et la cause est corrigée.** `HkayetErwi/` figurait
+dans l'`include` de `linto`, source **positive d'entraînement** — un test
+exigeait même sa présence, pour couvrir le registre narratif. Le corpus de
+vérité terrain était donc partiellement de l'entraînement. Mesuré :
+
+| blocs de `HkayetErwi` | n | médiane | reconnus |
+|---|---|---|---|
+| jamais vus | 259 | 0,9187 | **92,7 %** |
+| contenant une ligne vue | 173 | 0,9210 | 96,0 % |
+
+16,8 % des lignes fuyaient. L'**ancre haute tient** — 0,9187 sur les seuls
+blocs propres contre 0,9189 publié, écart négligeable — mais le taux honnête
+est **92,7 %**, pas 94,0 %. `HkayetErwi/` est désormais exclu et deux tests le
+verrouillent. Contrepartie assumée : le registre narratif n'est plus dans la
+classe positive, ce qui était l'intention d'origine ; le modèle le reconnaît
+tout de même à 92,7 % **sans l'avoir vu**, donc le coût est faible et
+l'intégrité de la mesure vaut davantage.
+
+C'est la même faute que le partage train/test du négatif adversarial, commise
+deux jours plus tôt sans être vue : **un corpus ne peut pas à la fois entraîner
+et juger.**
+
 **Le huitième est le prolongement du septième.** Compter les dix-neuf
 marqueurs rendait la règle inopérante : elle déclenchait sur 86,6 % du
 tunisien et 86,0 % du marocain — un écart de +0,6 point. Trois d'entre eux

@@ -83,7 +83,7 @@ SOURCES: dict[str, Source] = {
         # sous-corpus, d'où le filtre ci-dessous.
         locator="linagora/Tunisian_Derja_Dataset",
         include=(
-            "Derja_tunsi/", "HkayetErwi/", "TunBERT/", "TuDiCOI/", "Tweet_TN/",
+            "Derja_tunsi/", "TunBERT/", "TuDiCOI/", "Tweet_TN/",
             "TunSwitchTunisiaOnly/", "TunSwitchCodeSwitching/",
             "Sentiment_Derja/", "TunisianSentimentAnalysis/",
             "TA_Segmentation/", "Tunisian_Dialectic_English_Derja/",
@@ -93,6 +93,16 @@ SOURCES: dict[str, Source] = {
         # et le laisser entrer ici mettrait les mêmes textes des deux côtés du
         # découpage train/test. `QADI_TunisianDialect/` est exclu aussi — QADI
         # ne distribue que des identifiants de tweets, voir docs/HANDOVER.md.
+        #
+        # ⚠️ `HkayetErwi/` est exclu pour la MÊME raison, et l'oubli a coûté
+        # cher : c'est le corpus de vérité terrain du banc, celui qui a servi à
+        # recalibrer `MIN_DISTINCT_MARKERS` et qui fournit l'ancre haute. Le
+        # laisser ici en faisait un positif d'entraînement. Mesuré avant
+        # correction : 16,8 % de ses lignes étaient dans `linto.txt`, et les
+        # blocs concernés étaient reconnus à 96,0 % contre 92,7 % pour les
+        # blocs jamais vus. L'ancre, elle, n'a pas bougé — 0,9187 sur les seuls
+        # blocs propres contre 0,9189 publié. Un corpus de validation ne
+        # s'entraîne pas, même de 17 %.
         license="CC BY-SA 4.0",
         note="Agrégat de sous-corpus tunisiens. La licence est CC BY-**SA** : "
              "le partage à l'identique s'impose aux œuvres dérivées, ce qui "

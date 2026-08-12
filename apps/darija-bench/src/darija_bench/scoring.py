@@ -72,6 +72,13 @@ LATIN_DOMINANT: float = 0.60
 #: ``>= 2`` (ancien)    63,2 %                      0/6
 #: ===================  ==========================  ====================
 #:
+#: ⚠️ Ces trois taux sont mesurés sur les 432 blocs entiers, dont 40 % se sont
+#: révélés contenir une ligne vue à l'entraînement (`HkayetErwi/` figurait dans
+#: l'``include`` de ``linto``, depuis corrigé). Sur les seuls blocs propres, le
+#: classifieur seul tombe à 92,7 % au lieu de 94,0 %. **L'écart entre les trois
+#: lignes, lui, n'est pas affecté** — c'est lui qui a dicté la décision, et la
+#: contamination joue identiquement sur les trois.
+#:
 #: Exiger deux marqueurs rejetait **37 % du tunisien authentique** pour éviter
 #: un unique faux positif sur six textes que j'avais écrits moi-même. C'était
 #: calibrer l'instrument sur son auteur plutôt que sur la langue.

@@ -483,7 +483,15 @@ def test_linto_excludes_the_corpora_already_fetched_separately():
     assert include, "aucun filtre : tout le dépôt agrégé serait avalé"
     assert not any(p.startswith("TSAC") for p in include)
     assert not any(p.startswith("QADI") for p in include)
-    assert any(p.startswith("HkayetErwi") for p in include), "récit absent"
+    # `HkayetErwi/` etait ici, et cette ligne exigeait sa presence — « recit
+    # absent ». L'intention etait juste : c'est le seul registre narratif du
+    # cote positif, celui ou le classifieur decroche. Mais c'est aussi le
+    # corpus de verite terrain du banc, et on ne peut pas etre a la fois le
+    # juge et l'entrainement. Le cout mesure de son retrait est faible : sur
+    # les blocs qu'il n'avait JAMAIS vus, le modele reconnaissait deja le
+    # recit a 92,7 %. Voir la note de la source, et
+    # test_le_corpus_de_verite_terrain_nentraine_aucun_modele.
+    assert not any(p.startswith("HkayetErwi") for p in include)
 
 
 # ------------------------------------------------------- Arabizi (biais no 2)
@@ -508,3 +516,24 @@ def test_le_contraste_arabizi_sannonce_non_controle_en_genre():
     AUC comme une mesure de dialecte.
     """
     assert not B.CONTRASTS["vs_moroccan_latin"].genre_controlled
+
+
+def test_le_corpus_de_verite_terrain_nentraine_aucun_modele():
+    """`HkayetErwi/` juge le banc — il ne peut pas etre un positif d'entrainement.
+
+    L'oubli a dure deux jours : le sous-corpus figurait dans l'`include` de
+    `linto`, source positive. 16,8 % de ses lignes se retrouvaient dans le
+    cache d'entrainement, et les blocs concernes etaient reconnus a 96,0 %
+    contre 92,7 % pour les blocs jamais vus — 1,3 point d'inflation sur le
+    taux annonce. L'ancre haute, elle, n'a pas bouge : 0,9187 sur les blocs
+    propres contre 0,9189 publie.
+
+    Voir apps/darija-bench/tests/test_validation_narrative.py, qui charge ce
+    meme sous-corpus.
+    """
+    for cle, src in S.SOURCES.items():
+        if src.role != "positive" or not src.include:
+            continue
+        assert not any("HkayetErwi" in x for x in src.include), (
+            f"{cle} entraine sur le corpus qui le juge"
+        )

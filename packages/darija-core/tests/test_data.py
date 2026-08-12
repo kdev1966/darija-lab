@@ -13,7 +13,7 @@ def test_every_source_has_a_role_and_a_note():
     for key, src in S.SOURCES.items():
         assert src.key == key
         assert src.role in ("positive", "negative")
-        assert src.kind in ("wikipedia", "hf", "url")
+        assert src.kind in ("wikipedia", "hf", "url", "local")
         assert src.note, f"{key} sans note explicative"
 
 
@@ -158,13 +158,35 @@ def test_genre_controlled_contrasts_are_fully_controlled():
     # exprimer, pour scorer du texte translittere. Le controle de genre y est
     # identique, donc il appartient a cette liste.
     assert controlled == {"vs_moroccan_yt", "vs_moroccan_tw", "vs_algerian",
-                          "vs_maghreb", "vs_maghreb_arabizi"}
+                          "vs_maghreb", "vs_maghreb_arabizi", "vs_maghreb_llm"}
     for name in controlled:
         c = B.CONTRASTS[name]
         assert c.positives, f"{name}: positifs non restreints"
         assert c.arabic_only, f"{name}: alphabet non filtré"
         assert c.strip_entities, f"{name}: entités non filtrées"
         assert len(c.positives) >= 2, f"{name}: une seule provenance"
+
+
+def test_le_negatif_adversarial_est_produit_localement():
+    """Il ne se telecharge pas : il sort des campagnes de ce depot.
+
+    `fetch` doit sortir AVANT d'ouvrir le fichier en ecriture — `open(out,"w")`
+    le tronquerait, donc un `--force` detruirait le corpus au lieu de le
+    regenerer.
+    """
+    src = S.SOURCES["llm_fusha"]
+    assert src.kind == "local" and src.role == "negative"
+
+
+def test_le_contraste_adversarial_garde_les_negatifs_habituels():
+    """Le negatif LLM s'AJOUTE, il ne remplace pas.
+
+    Seul, il apprendrait « tunisien contre sortie de LLM » et etiquetterait du
+    marocain comme tunisien — le piege que documente le module sources.
+    """
+    c = B.CONTRASTS["vs_maghreb_llm"]
+    assert "llm_fusha" in c.negatives
+    assert {"omcd", "mac", "dz", "ary"} <= set(c.negatives)
 
 
 def test_only_the_reference_contrast_mixes_registers():

@@ -247,6 +247,22 @@ def fetch(
     if out.exists() and not force and meta_path.exists():
         return json.loads(meta_path.read_text(encoding="utf-8"))
 
+    if src.kind == "local":
+        # Produit par ce dépôt, pas téléchargé. On sort AVANT d'ouvrir le
+        # fichier en écriture : `open(out, "w")` le tronquerait, donc un
+        # `fetch --force` détruirait le corpus au lieu de le régénérer.
+        if not out.exists():
+            raise FileNotFoundError(
+                f"{src.key} est produit localement et absent de {cache}. "
+                f"Voir : {src.locator}"
+            )
+        return {
+            "key": src.key, "role": src.role, "kind": src.kind,
+            "locator": src.locator, "license": src.license,
+            "lines": sum(1 for _ in out.open(encoding="utf-8")),
+            "bytes": out.stat().st_size, "path": str(out),
+        }
+
     stats: dict[str, object] = {}
     n = 0
     with open(out, "w", encoding="utf-8") as fh:

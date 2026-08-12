@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 Role = Literal["positive", "negative"]
-Kind = Literal["wikipedia", "hf", "url"]
+Kind = Literal["wikipedia", "hf", "url", "local"]
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,8 @@ class Source:
     Attributes:
       key: identifiant court, sert de nom de fichier.
       role: ``positive`` (tunisien) ou ``negative`` (contre-exemple).
-      kind: mécanisme de récupération.
+      kind: mécanisme de récupération. ``local`` = produit par ce dépôt et non
+        téléchargé ; ``fetch`` le saute.
       locator: langue du wiki, dépôt Hugging Face, ou URL directe.
       max_bytes: plafond d'octets **compressés** lus. Le flux est interrompu
         au-delà, ce qui borne à la fois la bande passante et le disque.
@@ -137,6 +138,21 @@ SOURCES: dict[str, Source] = {
              "commercial, la contrainte la plus stricte du dépôt. ⚠️ Registre "
              "non contrôlé : 23 mots par ligne (phrases traduites) contre 8 "
              "pour TUNIZI (commentaires YouTube).",
+    ),
+    "llm_fusha": Source(
+        key="llm_fusha", role="negative", kind="local",
+        locator="produit par `darija-bench export-negatives`",
+        license="sorties de modèles, produites par ce dépôt",
+        note="**Le négatif adversarial.** De l'arabe écrit par des LLM à qui "
+             "l'on parlait tunisien et qui ont glissé — le registre exact du "
+             "biais nº 7, que ni `ar` (encyclopédique) ni `ary` (marocain) ne "
+             "représentent. Mesuré : score médian 0,806 contre 0,789 pour `ar` "
+             "et 0,924 pour `linto`, et **8,7 % passent le seuil** du modèle "
+             "de référence. Idée reprise de `tuni-folk-gemini`, dont la classe "
+             "négative est la sortie du modèle même qu'il affine.\n"
+             "Sélectionné par **provenance** (quels modèles), jamais par score "
+             "— sélectionner sur le score ferait réapprendre au nouveau modèle "
+             "la frontière de l'ancien.",
     ),
     "omcd": Source(
         key="omcd", role="negative", kind="url",

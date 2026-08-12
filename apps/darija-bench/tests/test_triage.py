@@ -106,3 +106,28 @@ def test_le_rendu_distingue_indecidable_de_rejete():
 
 def test_rendu_vide():
     assert summarise([]) == "aucun document"
+
+
+def test_l_ecriture_latine_est_translitteree_avant_mesure():
+    """TUNIZI est une source POSITIVE, et le tri la rejetait en bloc.
+
+    `judge` envoyait le texte latin brut au classifieur, qui n'a jamais vu
+    d'Arabizi — le filtre `arabic_only` l'ayant elimine a l'entrainement.
+    Resultat mesure avant correctif : 0 % de tunisien et une position mediane
+    de -41 % sur du tunisien authentique. Le reste de l'application appelait
+    deja `prepare` ; le tri ne le faisait pas.
+    """
+    v = judge("chnowa a7welek ya sa7bi, rani mrigel barcha w enti chneya "
+              "el jdid 3andek, 9ouli chnowa 3malt lbare7 fi el 3achiya "
+              "w win msit m3a s7abek el kol", _FauxModele())
+    assert v.transliterated, "l'ecriture latine doit etre signalee"
+    assert v.n_words > 0
+
+
+def test_le_rendu_signale_la_translitteration():
+    # La reserve doit voyager avec le chiffre : une position obtenue apres
+    # translitteration n'est pas comparable aux autres.
+    texte = summarise([
+        Verdict("a", 100, 2, "tunisien", 0.9, 0.8, 1.0, 3, transliterated=True),
+    ])
+    assert "translitteres" in texte and "approximative" in texte

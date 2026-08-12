@@ -29,7 +29,7 @@ from darija import markers
 from darija.dialect import DialectModel
 
 from . import anchors
-from .scoring import MIN_DISTINCT_MARKERS, blocks
+from .scoring import MIN_DISTINCT_MARKERS, blocks, prepare
 
 #: Extensions reconnues en entrée.
 SUFFIXES = (".jsonl", ".txt", ".csv")
@@ -47,6 +47,7 @@ class Verdict:
     position: float | None = None
     share_tunisian: float | None = None
     n_markers: int = 0
+    transliterated: bool = False
 
     def as_dict(self) -> dict[str, object]:
         """Vue sérialisable."""
@@ -59,6 +60,7 @@ class Verdict:
             "position": self.position,
             "share_tunisian": self.share_tunisian,
             "n_markers": self.n_markers,
+            "transliterated": self.transliterated,
         }
 
 
@@ -118,14 +120,19 @@ def judge(text: str, model: DialectModel, *, ident: str = "") -> Verdict:
     le classifieur se prononce. Le confondre avec un rejet fausserait tout
     décompte — un texte bref n'est pas un texte étranger.
     """
-    n_words = len(text.split())
-    decoupe = blocks(text)
+    # L'écriture latine passe par la translittération, comme partout ailleurs
+    # dans l'application. L'oublier envoyait de l'Arabizi brut au classifieur,
+    # qui n'en a jamais vu : TUNIZI — une source POSITIVE — ressortait à 0 %
+    # de tunisien et une position de −41 %.
+    scored, translit = prepare(text)
+    n_words = len(scored.split())
+    decoupe = blocks(scored)
     if not decoupe:
-        return Verdict(ident, n_words, 0, "indecidable")
+        return Verdict(ident, n_words, 0, "indecidable", transliterated=translit)
 
     scores = [model.score(b) for b in decoupe]
     median = statistics.median(scores)
-    distinct = len({m.marker for m in markers.find(text)} & markers.DISCRIMINANT)
+    distinct = len({m.marker for m in markers.find(scored)} & markers.DISCRIMINANT)
     tunisien = [s for s in scores if s >= model.threshold]
     ok = median >= model.threshold and distinct >= MIN_DISTINCT_MARKERS
     return Verdict(
@@ -137,6 +144,7 @@ def judge(text: str, model: DialectModel, *, ident: str = "") -> Verdict:
         position=round(anchors.position(median), 4),
         share_tunisian=round(len(tunisien) / len(scores), 3),
         n_markers=distinct,
+        transliterated=translit,
     )
 
 
@@ -172,6 +180,13 @@ def summarise(verdicts: list[Verdict]) -> str:
             f"  position : min {pos[0]:.0%} · mediane {statistics.median(pos):.0%} "
             f"· max {pos[-1]:.0%}",
             f"  documents trop courts pour etre juges : {len(verdicts) - len(mesures)}",
+        ]
+    translit = sum(1 for v in verdicts if v.transliterated)
+    if translit:
+        lignes += [
+            "",
+            f"  {translit} document(s) en ecriture latine, translitteres avant mesure.",
+            "  La conversion est approximative : lisez ces verdicts comme des indices.",
         ]
     lignes += [
         "",

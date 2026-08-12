@@ -190,18 +190,45 @@ l'intégralité des contre-exemples, AUC intacte. Les seuils réels observés :
 
 ---
 
-## État mesuré du modèle de référence (`vs_maghreb`)
+## État mesuré du modèle de référence (`vs_maghreb_llm`)
+
+**La référence a changé le 12 août 2026.** `vs_maghreb_llm` — la référence plus
+les 519 blocs de fusha écrite par un LLM — bat l'ancien `vs_maghreb` sur tous
+les axes, et le seuil est passé de 0,8381 à **0,8393**.
 
 ```
-source     role           n   mediane  >=seuil
-linto      positive    4000     0.955    99.2%
-tsac       positive     885     0.918    99.6%
-arbml_tn   positive    3758     0.903    96.1%
-ary        negative    4000     0.522     0.0%   (prose formelle)
-omcd       negative    1506     0.757     0.0%
-mac        negative    2100     0.793     0.8%
-dz         negative     354     0.805     5.4%
+source          role           n   mediane  >=seuil
+tsac            positive     885     0.956    99.8%
+linto           positive    4000     0.954    98.9%
+arbml_tn        positive    3758     0.940    98.6%
+dz              negative     354     0.811     8.5%
+mac             negative    2100     0.795     1.2%
+ar              negative    4000     0.783     0.4%   (fusha encyclopédique)
+ar_source       negative    4000     0.778     9.2%   (récit classique)
+llm_fusha_val   negative     173     0.778     0.0%   ← le juge, jamais vu
+omcd            negative    1506     0.757     0.1%
+ary            negative    4000     0.520     0.0%   (prose formelle)
 ```
+
+Récit tunisien humain reconnu : **93,8 %**, sans contamination cette fois.
+
+Comparaison à l'ancienne référence, sur les mêmes mesures :
+
+| | `vs_maghreb` (2026-08-11) | `vs_maghreb_llm` |
+|---|---|---|
+| fusha de LLM (jamais vue) | 8,1 % | **0,0 %** |
+| `ar` | 0,4 % | 0,4 % |
+| `mac` | 0,8 % | 1,2 % |
+| `dz` | 5,4 % | 8,5 % |
+| pire provenance tunisienne | 96,1 % | **98,6 %** |
+
+Le coût est sur l'algérien, et il est mal résolu : 354 blocs, écart-type
+binomial ±1,4 point. Le gain sur le registre du biais nº 7 est net et mesuré
+hors des blocs vus.
+
+⚠️ **`vs_maghreb` existe encore mais n'est plus la référence.** Il rejetait la
+fusha par accident, grâce à des sous-corpus dont personne n'avait noté le rôle ;
+voir la note de la source `linto` et la règle nº 1 plus haut.
 
 **Sait faire :** distinguer le tunisien du marocain et de l'algérien, sur
 réseaux sociaux comme sur prose formelle, avec généralisation à des provenances

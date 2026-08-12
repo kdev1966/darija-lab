@@ -226,23 +226,6 @@ CONTRASTS: dict[str, Contrast] = {
         # Son point faible, la fusha encyclopédique, est celui que la règle de
         # conjonction couvre déjà — un article n'a aucun marqueur discriminant.
     ),
-    "vs_maghreb_fusha": Contrast(
-        "la référence, plus de l'arabe standard encyclopédique dosé à 10 % "
-        "— le modèle du banc, qui ne rencontre jamais d'algérien",
-        negatives=["omcd", "mac", "dz", "ary", "llm_fusha", "ar"],
-        positives=["tsac", "tunizi", "arbml_tn", "linto"],
-        genre_controlled=True, arabic_only=True, strip_entities=True,
-        shares={"ar": 0.10},
-        # Le dosage est tout : `ar` versé en entier occupe la moitié de la
-        # classe et porte le marocain à 11 % et l'algérien à 15,8 %. À 10 %,
-        # avec `llm_fusha` : `ar` 1,1 %, fusha de LLM 5,8 %, `mac` 1,6 %,
-        # `dz` 9,9 %, récit 91,7 %.
-        #
-        # L'algérien paie — 4,8 → 9,9 % — et c'est assumé : le banc mesure des
-        # sorties de LLM, il n'en rencontre pas. Le tri de corpus, lui, a le
-        # voisinage maghrébin pour contaminant principal et emploie
-        # `vs_maghreb_llm`.
-    ),
     "vs_moroccan_latin": Contrast(
         "tunisien contre marocain, en Arabizi des deux côtés — le premier "
         "contraste qui mesure l'écriture latine au lieu de la traduire",
@@ -351,6 +334,24 @@ class Dataset:
                         "negative": self.sources_negative},
         }
 
+
+#: Le contraste `vs_maghreb_fusha` a existé ici : la référence plus de la fusha
+#: encyclopédique dosée à 10 %, pour rattraper un classifieur qui laissait
+#: passer 45,6 % de `ar`. Il a été retiré une fois le corpus LinTO d'origine
+#: récupéré — sur un corpus sain il est **dominé** :
+#:
+#: ========================  ================  ==================
+#: mesure                    `vs_maghreb_llm`  `vs_maghreb_fusha`
+#: ========================  ================  ==================
+#: fusha de LLM                        0,0 %              0,0 %
+#: `ar`                                0,4 %              0,0 %
+#: `mac`                             **1,2 %**            2,9 %
+#: pire provenance tunisienne       **98,6 %**           97,3 %
+#: ========================  ================  ==================
+#:
+#: Quatre dixièmes de point sur `ar` contre 1,3 point de tunisien. Le dosage
+#: répondait à un problème que le corpus abîmé avait créé. Le mécanisme
+#: :data:`Contrast.shares` reste, lui : il vaut par lui-même.
 
 #: Part maximale d'une classe qu'une seule provenance peut occuper.
 #:

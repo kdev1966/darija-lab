@@ -162,11 +162,8 @@ def test_genre_controlled_contrasts_are_fully_controlled():
     # `vs_maghreb_llm` l'est aussi : il ajoute un negatif de prose (l'arabe
     # standard des LLM) a cote de `ary`, qui est deja de la prose. Le controle
     # de genre du contraste de reference n'en est pas affecte.
-    # `vs_maghreb_fusha` ajoute la fusha encyclopedique DOSEE a 10 % : versee
-    # en entier elle porte le marocain a 11 % et l'algerien a 15,8 %.
     assert controlled == {"vs_moroccan_yt", "vs_moroccan_tw", "vs_algerian",
-                          "vs_maghreb", "vs_maghreb_arabizi", "vs_maghreb_llm",
-                          "vs_maghreb_fusha"}
+                          "vs_maghreb", "vs_maghreb_arabizi", "vs_maghreb_llm"}
     for name in controlled:
         c = B.CONTRASTS[name]
         assert c.positives, f"{name}: positifs non restreints"
@@ -650,17 +647,19 @@ def test_une_source_sans_part_declaree_garde_le_defaut():
     assert len(a) == len(b)
 
 
-def test_la_fusha_encyclopedique_est_dosee_jamais_versee_en_entier():
-    """Verse en entier, `ar` casse ce qu'il est cense reparer.
+def test_la_fusha_encyclopedique_n_est_plus_un_negatif():
+    """Elle rattrapait un corpus abime, elle ne sert plus a rien.
 
-    Mesure, avec `llm_fusha` dans les deux cas : a 10 %, `ar` tombe a 1,1 % de
-    faux positifs pour un marocain a 1,6 %. Sans dosage — donc a 50 %, le
-    plafond par defaut — le marocain monte a 11,0 % et l'algerien a 15,8 %.
+    `vs_maghreb_fusha` dosait `ar` a 10 % pour ramener 45,6 % de faux positifs
+    a 1,1 %. Le corpus LinTO d'origine recupere, ce probleme n'existe plus et
+    le contraste est domine : `mac` 2,9 % contre 1,2 %, pire provenance
+    tunisienne 97,3 % contre 98,6 %, pour quatre dixiemes de point gagnes sur
+    `ar`. Le mecanisme `shares` reste, il vaut par lui-meme.
     """
-    c = B.CONTRASTS["vs_maghreb_fusha"]
-    assert "ar" in c.negatives
-    assert c.shares.get("ar") == 0.10, "la fusha encyclopedique doit rester dosee"
-    assert "llm_fusha" in c.negatives, "le dosage seul ne suffit pas au registre des LLM"
+    assert "vs_maghreb_fusha" not in B.CONTRASTS
+    for nom, c in B.CONTRASTS.items():
+        if c.genre_controlled:
+            assert "ar" not in c.negatives, f"{nom} reintroduit la fusha encyclopedique"
 
 
 def test_le_negatif_adversarial_est_dans_la_reference():

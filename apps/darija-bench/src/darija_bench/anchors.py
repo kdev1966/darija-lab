@@ -10,14 +10,14 @@ par rapport à une frontière, mais **situé entre deux textes humains** :
 =====================================  ========  =======================
 ancre                                   médiane  ce que c'est
 =====================================  ========  =======================
-``HAUT`` récit tunisien humain            0,9189  ``HkayetErwi``, 432 blocs
-``BAS``  récit arabe classique            0,8292  Wikisource, 1 200 blocs
-(hors échelle) arabe encyclopédique       0,7860  Wikipédia, 1 200 blocs
+``HAUT`` récit tunisien humain            0,9184  ``HkayetErwi``, 432 blocs
+``BAS``  récit arabe classique            0,8308  Wikisource, 1 200 blocs
+(hors échelle) arabe encyclopédique       0,7814  Wikipédia, 1 200 blocs
 =====================================  ========  =======================
 
 **Pourquoi Wikisource et non Wikipédia** — la troisième ligne est la raison
-d'être de ce module. L'encyclopédie score 0,786, le récit classique 0,829 :
-0,043 d'écart pour la même langue. Ancrer un conte sur l'encyclopédie aurait
+d'être de ce module. L'encyclopédie score 0,781, le récit classique 0,831 :
+0,050 d'écart pour la même langue. Ancrer un conte sur l'encyclopédie aurait
 ajouté l'écart de registre à l'écart de langue et gonflé toute mesure. Les deux
 ancres retenues sont donc **du récit des deux côtés** — le contrôle de genre
 que le biais nº 1 de ce dépôt exigeait déjà.
@@ -27,49 +27,51 @@ Une position de 0 % signifie « aussi peu tunisien qu'un conte en fusha », 100 
 l'intervalle, et rien ne doit l'empêcher : un modèle plus dialectal que le
 corpus humain est une information, pas une anomalie à écrêter.
 
-⚠️ **Ces trois valeurs appartiennent à `vs_maghreb`**, et à lui seul. Un score
-n'a de sens que sur l'échelle du modèle qui l'a produit : `vs_maghreb_llm`
-place le même récit tunisien à 0,9181 et déplace son seuil de 0,838 à 0,828.
-L'employer avec ces ancres mélangerait deux échelles. Si le banc bascule un
-jour sur lui, il faut re-mesurer les trois — la première demande le cache
-``HkayetErwi``, les deux autres ``darija data fetch ar_source`` et ``ar``.
+⚠️ **Ces valeurs appartiennent à `vs_maghreb_llm`**, et à lui seul. Un score
+n'a de sens que sur l'échelle du modèle qui l'a produit. Elles ont été
+re-mesurées le 12 août 2026, après récupération du corpus LinTO d'origine et
+exclusion de `HkayetErwi` de l'entraînement — l'échelle a très peu bougé
+(``HAUT`` 0,9189 → 0,9184), mais le corpus qui la porte n'est plus contaminé.
+Pour re-mesurer : le cache ``HkayetErwi`` pour ``HAUT`` et les centiles,
+``darija data fetch ar_source`` et ``ar`` pour les deux autres.
 """
 
 from __future__ import annotations
 
 #: Récit tunisien humain — ``HkayetErwi``, LinTO, CC BY-SA 4.0, 432 blocs.
-HAUT: float = 0.9189
+#: Exclu de l'entraînement depuis le 12 août 2026 : il juge, il n'alimente pas.
+HAUT: float = 0.9184
 
 #: Récit arabe classique — Wikisource arabe, domaine public, 1 200 blocs.
-BAS: float = 0.8292
+BAS: float = 0.8308
 
 #: Arabe encyclopédique — Wikipédia arabe, 1 200 blocs. **Hors échelle** :
 #: conservé parce que c'est lui qui prouve pourquoi il ne fallait pas s'en
 #: servir comme ancre.
-ENCYCLOPEDIQUE: float = 0.7860
+ENCYCLOPEDIQUE: float = 0.7814
 
 # --------------------------------------------------------------- dispersion
 # :data:`HAUT` est une **médiane**, pas un plafond — et l'oublier fait lire
 # « 57 % » comme « à moitié tunisien ». Mesuré sur les 432 blocs de
-# ``HkayetErwi``, le corpus humain s'étale lui-même de 5 % à 151 % de position,
-# écart-type 0,038. Un texte à 57 % est donc à un écart-type sous la médiane :
-# bas de la fourchette normale, pas anomalie.
+# ``HkayetErwi``, le corpus humain s'étale lui-même de **−3 % à 154 %** de
+# position (5ᵉ et 95ᵉ centiles), écart-type 0,039. Un texte à 57 % est donc à un
+# écart-type sous la médiane : bas de la fourchette normale, pas anomalie.
 #
 # C'est la même faute que celle corrigée sur les textes longs — un chiffre
 # unique qui cache une dispersion. Sauf qu'ici la dispersion cachée est celle
 # de l'ancre, pas celle du texte mesuré.
 
-#: 10ᵉ centile du récit humain — position 34 %.
-HUMAIN_P10: float = 0.8596
+#: 10ᵉ centile du récit humain — position 27 %.
+HUMAIN_P10: float = 0.8542
 
-#: 1ᵉʳ quartile du récit humain — position 80 %.
-HUMAIN_Q1: float = 0.9011
+#: 1ᵉʳ quartile du récit humain — position 77 %.
+HUMAIN_Q1: float = 0.8982
 
 #: 3ᵉ quartile du récit humain — position 122 %.
-HUMAIN_Q3: float = 0.9389
+HUMAIN_Q3: float = 0.9372
 
 #: Écart-type des scores du récit humain, en score brut.
-HUMAIN_ECART_TYPE: float = 0.0381
+HUMAIN_ECART_TYPE: float = 0.0388
 
 
 def position(score: float) -> float:

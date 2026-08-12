@@ -41,6 +41,19 @@ MAX_RETRIES: int = 2
 #: Attente de repli quand le serveur ne conseille aucun délai.
 FALLBACK_DELAY: float = 20.0
 
+#: Échecs consécutifs, **sans une seule réussite**, avant d'abandonner un modèle.
+#:
+#: Un quota épuisé s'annonce (« per day ») et est traité à part. Ce garde-fou
+#: vise l'autre cas : un modèle étranglé en amont, qui répond
+#: « temporarily rate-limited upstream » sans jamais céder. Mesuré le 12 août
+#: sur ``google/gemma-4-31b-it:free`` — chaque prompt coûtait alors deux
+#: reprises à 20 s avant d'être consigné, soit 13 minutes pour découvrir que le
+#: modèle ne répondrait pas du tout.
+#:
+#: La condition « aucune réussite » est essentielle : un modèle qui a déjà
+#: produit des réponses traverse un creux, il ne faut pas le jeter.
+ABANDON_APRES: int = 3
+
 #: Consignes par condition. ``None`` = aucun prompt système.
 CONDITIONS: dict[str, str | None] = {
     "implicite": None,
@@ -175,6 +188,7 @@ def collect(
             # ce modèle. On l'abandonne au premier refus définitif au lieu de
             # dérouler la liste entière contre un mur.
             abandoned: str | None = None
+            echecs = 0
             for condition in conditions:
                 system = CONDITIONS[condition]
                 for prompt in prompts:
@@ -207,8 +221,16 @@ def collect(
                     fh.write(json.dumps(record.__dict__, ensure_ascii=False) + "\n")
                     fh.flush()
                     report.calls += 1
-                    if not record.error:
+                    if record.error:
+                        echecs += 1
+                        # Jamais rien produit et deja `ABANDON_APRES` echecs :
+                        # ce modele ne repondra pas, inutile de lui payer ses
+                        # vingt appels a 40 s chacun.
+                        if not report.succeeded[provider.name] and echecs >= ABANDON_APRES:
+                            abandoned = f"{echecs} echecs d'affilee sans une seule reponse"
+                    else:
                         report.succeeded[provider.name] += 1
+                        echecs = 0
                     if callable(on_progress):
                         on_progress(record)
             if abandoned:

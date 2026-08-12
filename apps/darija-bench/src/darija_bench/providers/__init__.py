@@ -68,6 +68,9 @@ REGISTRY: dict[str, tuple[str, str | None]] = {
     "openai": ("darija_bench.providers.openai_api", None),
     "google": ("darija_bench.providers.google_api", None),
     "openrouter": ("darija_bench.providers.openrouter_api", None),
+    # ⚠️ Payant : pas de palier gratuit garanti, contrairement aux deux
+    # au-dessus. Voir l'avertissement en tête de `xai_api`.
+    "xai": ("darija_bench.providers.xai_api", None),
 }
 
 

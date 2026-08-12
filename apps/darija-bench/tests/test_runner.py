@@ -219,3 +219,68 @@ def test_aucun_env_ne_leve_pas(tmp_path):
     from darija_bench.cli import charger_env
 
     assert charger_env(tmp_path / "vide") == [] or True
+
+
+def test_un_modele_qui_ne_repond_jamais_est_abandonne(tmp_path):
+    """Un etranglement en amont n'est pas un quota, mais coute aussi cher.
+
+    `google/gemma-4-31b-it:free` a repondu « temporarily rate-limited upstream »
+    a chaque appel le 12 aout. Ce n'est pas un plafond journalier — le code le
+    reessaye donc, deux fois, a 20 s d'intervalle. Vingt prompts a ce tarif
+    font treize minutes pour n'obtenir aucune donnee.
+    """
+    faux = FauxFournisseur(suite=[ProviderError("etrangle")] * 20)
+    collect([faux], _prompts(10), tmp_path / "r.jsonl", conditions=["implicite"])
+    assert faux.appels == runner.ABANDON_APRES, (
+        f"{faux.appels} appels au lieu de {runner.ABANDON_APRES}"
+    )
+
+
+def test_un_modele_qui_a_deja_repondu_traverse_un_creux(tmp_path):
+    """La condition « aucune reussite » est essentielle.
+
+    Sans elle, trois refus de securite d'affilee au milieu d'une campagne
+    jetteraient un modele qui fonctionne.
+    """
+    faux = FauxFournisseur(
+        suite=["ok"] + [ProviderError("creux")] * 3 + ["ok"] * 6
+    )
+    collect([faux], _prompts(10), tmp_path / "r.jsonl", conditions=["implicite"])
+    assert faux.appels == 10, "le modele ne devait pas etre abandonne"
+
+
+# ------------------------------------------------------- fournisseur xAI
+def test_xai_est_enregistre_et_exige_un_modele():
+    """Grok revendique l'arabe et n'etait pas mesure ; le catalogue, lui, n'est
+    pas verifiable d'ici, donc deviner un identifiant produirait un 404 opaque
+    au milieu d'une campagne.
+    """
+    from darija_bench.providers import REGISTRY, ProviderError, build
+
+    assert "xai" in REGISTRY
+    with pytest.raises(ProviderError, match="obligatoire"):
+        build("xai")
+
+
+def test_xai_dit_precisement_quelle_cle_manque(monkeypatch):
+    """Le defaut du jour : un message vague fait perdre une campagne entiere."""
+    from darija_bench.providers import ProviderError, build, xai_api
+
+    monkeypatch.delenv(xai_api.KEY_VAR, raising=False)
+    p = build("xai:grok-4")
+    assert p.name == "xai:grok-4"
+    with pytest.raises(ProviderError, match=xai_api.KEY_VAR):
+        p.generate("مرحبا")
+
+
+def test_xai_distingue_un_ralentissement_d_un_plafond():
+    """Un pic se reessaye, un plafond de credit condamne le modele.
+
+    Sans cette distinction, une campagne depense tous ses appels contre un mur
+    — c'est exactement ce qui s'est produit sur Google le 11 aout.
+    """
+    from darija_bench.providers import xai_api
+
+    assert xai_api._DEFINITIF.search("insufficient credits")
+    assert xai_api._DEFINITIF.search("quota exceeded")
+    assert not xai_api._DEFINITIF.search("temporarily rate-limited upstream")

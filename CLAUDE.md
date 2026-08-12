@@ -111,12 +111,33 @@ Mesuré **sur les 8 prompts jamais vus à l'entraînement** :
 | fusha de LLM classée tunisienne | 4,9 % | **0,0 %** |
 | récit tunisien humain reconnu | 94,0 % | 94,2 % |
 | pire provenance tunisienne | 96,1 % | 96,7 % |
-| algérien mal classé | 5,4 % | **7,6 %** |
-| marocain (`mac`) mal classé | 0,8 % | **1,8 %** |
+| algérien mal classé | 5,4 % | 7,6 % |
+| marocain (`mac`) mal classé | 0,8 % | 1,8 % |
 
-Le gain sur le registre visé est net et le tunisien ne perd rien ; le coût est
-sur le voisinage maghrébin, et il est réel. `vs_maghreb` reste donc la
-référence tant que ce compromis n'est pas arbitré.
+**Le compromis a été arbitré par un balayage** : négatif total constant, seule
+la part de `llm_fusha` varie, mesure identique à `darija data validate`.
+
+| plafond | part | juge | `dz` | `mac` | récit humain |
+|---|---|---|---|---|---|
+| 0 | 0 % | 8,1 % | 5,4 % | 0,8 % | 94,0 % |
+| 100 | 1,4 % | 1,2 % | 6,5 % | 0,9 % | 93,8 % |
+| 200 | 2,8 % | **0,0 %** | 8,5 % | 1,3 % | 94,2 % |
+| 519 | 7,3 % | **0,0 %** | 7,1 % | 1,2 % | 93,1 % |
+
+Deux enseignements. **Le gain sature à 200 blocs** — les 319 suivants
+n'apportent rien sur le registre visé, donc générer davantage sur Colab serait
+du temps perdu. Et **plafonner n'achète rien** : le coût sur `dz` ne décroît
+pas quand on redescend, il est même pire à 200 qu'à 519. Cette non-monotonie
+signe du bruit — `dz` compte 354 blocs, un point vaut 3,5 blocs, l'écart-type
+binomial est de ±1,4 point. Les six variantes sont toutes au-dessus de la
+référence, donc l'effet existe ; sa taille est entre +1 et +3 points et cet
+échantillon ne permet pas de la préciser.
+
+**Conclusion : deux modèles pour deux usages, pas un vainqueur.** Le banc
+mesure la fusha des LLM et ne voit jamais d'algérien → `vs_maghreb_llm`. Le tri
+de corpus a le voisinage maghrébin pour contaminant principal et ne rencontre
+pas de sortie de LLM → `vs_maghreb`. `vs_maghreb` reste la référence par
+défaut, `vs_maghreb_llm` s'emploie via `--model`.
 
 **Deux pièges à ne pas refaire de ce corpus** — tous deux documentés dans
 `darija_bench.adversarial` :

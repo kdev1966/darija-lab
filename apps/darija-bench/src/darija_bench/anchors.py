@@ -26,6 +26,13 @@ Une position de 0 % signifie « aussi peu tunisien qu'un conte en fusha », 100 
 « aussi tunisien qu'un conte tunisien humain ». Rien n'empêche de sortir de
 l'intervalle, et rien ne doit l'empêcher : un modèle plus dialectal que le
 corpus humain est une information, pas une anomalie à écrêter.
+
+⚠️ **Ces trois valeurs appartiennent à `vs_maghreb`**, et à lui seul. Un score
+n'a de sens que sur l'échelle du modèle qui l'a produit : `vs_maghreb_llm`
+place le même récit tunisien à 0,9181 et déplace son seuil de 0,838 à 0,828.
+L'employer avec ces ancres mélangerait deux échelles. Si le banc bascule un
+jour sur lui, il faut re-mesurer les trois — la première demande le cache
+``HkayetErwi``, les deux autres ``darija data fetch ar_source`` et ``ar``.
 """
 
 from __future__ import annotations

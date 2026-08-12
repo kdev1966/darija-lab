@@ -5,3 +5,15 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
+
+# ⚠️ Le texte du corpus ne se versionne pas, et le dépôt est public.
+#
+# Le statut juridique de ces textes n'est pas établi : la source est la
+# مدوّنة الشعر الشعبي التونسي, corpus national en 10 volumes vraisemblablement
+# sous droits. Ils ont été distribués publiquement par inadvertance quand le
+# dépôt est passé en public, puis retirés de l'historique.
+#
+# `report.json` reste versionné : ce ne sont que des décomptes, aucun texte.
+# `extract.py` régénère `corpus.csv` et `corpus.jsonl` en local.
+data/corpus.csv
+data/corpus.jsonl

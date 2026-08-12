@@ -23,6 +23,14 @@ Traitez ces données comme **usage interne / recherche uniquement** tant que ce
 point n'est pas tranché. Ne publiez ni le corpus, ni un modèle entraîné dessus,
 sans avoir clarifié les droits.
 
+**Le texte n'est donc pas dans ce dépôt.** Il l'a été : `corpus.csv` et
+`corpus.jsonl` étaient versionnés quand le dépôt était privé, et sont devenus
+publics en même temps que lui. Ils ont été retirés de tout l'historique
+(`git filter-repo`), et `.gitignore` les empêche de revenir. Seul
+`report.json` subsiste — ce ne sont que des décomptes.
+
+`extract.py` les régénère en local à partir des artefacts de `tuni-folk-gemini`.
+
 ## Schéma
 
 `data/corpus.jsonl` — une ligne JSON par texte. `data/corpus.csv` — mêmes

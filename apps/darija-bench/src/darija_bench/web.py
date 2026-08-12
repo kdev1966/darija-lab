@@ -75,7 +75,9 @@ class Measure:
 
         score = self.model.score(scored)
         found = markers.find(scored)
-        distinct = sorted({m.marker for m in found})
+        # Décision sur les seuls discriminants ; l'affichage garde tout.
+        distinct = sorted({m.marker for m in found} & markers.DISCRIMINANT)
+        tous = sorted({m.marker for m in found})
         out.update(
             status="mesure",
             score=round(score, 4),
@@ -88,10 +90,11 @@ class Measure:
                 {
                     "name": name,
                     "category": markers.MARKERS[name][1],
+                    "decides": name in markers.DISCRIMINANT,
                     "gloss": markers.MARKERS[name][2],
                     "count": sum(1 for m in found if m.marker == name),
                 }
-                for name in distinct
+                for name in tous
             ],
             codeswitch={k: round(v, 3) for k, v in codeswitch.profile(scored).items()},
         )

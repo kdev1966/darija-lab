@@ -374,3 +374,56 @@ def test_la_negation_elargie_ne_mord_pas_sur_la_fusha():
     for phrase in ("ما شاء الله كان", "وما ذلك الا بعد حين", "ما هذا الا بشر"):
         trouve = {m.marker for m in M.find(phrase)}
         assert "negation_ma_sh" not in trouve, phrase
+
+
+# ------------------- marqueurs : tous ne se valent pas, et c'est mesure
+def test_les_marqueurs_non_discriminants_sont_ecartes_de_la_decision():
+    """Trois marqueurs sont aussi frequents ailleurs qu'en tunisien, voire plus.
+
+    Mesure sur les corpus du depot, part des blocs de 60 mots ou le marqueur
+    apparait :
+
+        n_prefix_1sg      TN 67,7 %  MA 72,0 %  DZ 42,9 %  fusha 66,6 %
+        relativizer_elli  TN  5,1 %  MA 26,0 %  DZ  3,3 %  fusha  0,0 %
+        interrog_3lach    TN  4,4 %  MA  5,8 %  DZ  0,6 %  fusha  0,0 %
+
+    Le prefixe `ن-` note le *je* en tunisien et le *nous* en arabe classique :
+    d'ou 66,6 % cote fusha, et le faux positif observe sur l'ouverture des
+    Mille et Une Nuits. `اللي` est cinq fois plus frequent en marocain.
+    """
+    from darija.markers import DISCRIMINANT, MARKERS
+
+    ecartes = set(MARKERS) - DISCRIMINANT
+    assert ecartes == {"n_prefix_1sg", "relativizer_elli", "interrog_3lach"}
+
+
+def test_les_ecartes_restent_detectes_pour_expliquer():
+    """Ils sortent de la decision, pas de l'explication.
+
+    `markers.find` doit continuer a les rendre : un lecteur veut savoir qu'un
+    texte emploie `اللي`, meme si ce fait ne prouve rien.
+    """
+    from darija.markers import find
+
+    trouve = {m.marker for m in find("اللي نحب علاش نمشي")}
+    assert "relativizer_elli" in trouve
+    assert "n_prefix_1sg" in trouve
+
+
+def test_la_regle_discriminante_separe_ce_que_l_ancienne_confondait():
+    """Avec les dix-neuf : 86,6 % du tunisien mais 86,0 % du marocain.
+
+    Un ecart de +0,6 point, soit un tirage a pile ou face. Sans les trois
+    ecartes : 66,8 % du tunisien, 37,0 % du marocain, 2,0 % de la fusha —
+    ecart +29,8 points. Ce test verrouille le principe sur deux phrases
+    temoins plutot que sur les corpus, qui sont gitignores.
+    """
+    from darija.markers import DISCRIMINANT, find
+
+    def decide(texte: str) -> int:
+        return len({m.marker for m in find(texte)} & DISCRIMINANT)
+
+    # Fusha : uniquement le prefixe `ن-` au sens « nous », desormais ecarte.
+    assert decide("قم بنا نسافر إلى حال سبيلنا حتى ننظر هل جرى لأحد مثلنا") == 0
+    # Tunisien : marqueurs propres, conserves.
+    assert decide("برشا باهي، توا نمشيو و قداش من مرة قلتلك ياخي") >= 3

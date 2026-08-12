@@ -6,6 +6,11 @@ préfixe ``n-`` de première personne (``نمشي`` « je vais », là où la fu
 particule de futur ``باش``. Ces motifs sont sous-lexicaux et survivent à une
 orthographe instable, ce qui les rend bien plus robustes qu'une liste de mots.
 
+Tous les marqueurs ne se valent pas, et c'est mesuré : voir
+:data:`DISCRIMINANT`. Trois d'entre eux — le préfixe ``ن-``, ``اللي``,
+``علاش`` — sont aussi fréquents ailleurs qu'en tunisien, voire plus. Les
+compter comme les autres rend la règle « au moins un marqueur » inopérante.
+
 Un avertissement de calibrage, mesuré sur corpus réel : un score fondé sur le
 **taux de marqueurs** atteint une AUC d'environ 0.77 pour séparer du tunisien
 d'autre chose — honorable, mais nettement en deçà d'un classifieur contrastif
@@ -77,6 +82,39 @@ MARKERS: Final[dict[str, tuple[str, str, str]]] = {
 MODERN_MARKERS: Final[frozenset[str]] = frozenset({
     "quant_barsha", "interrog_chnowa", "adj_behi", "ok_yakhi", "enough_yezzi",
 })
+
+#: Marqueurs dont la présence **informe** sur le tunisien. Les autres sont
+#: gardés pour expliquer, jamais pour décider.
+#:
+#: Mesuré sur les corpus du dépôt — part des blocs de 60 mots où le marqueur
+#: apparaît au moins une fois :
+#:
+#: ====================  ======  ======  ======  ======
+#: marqueur              TN      MA      DZ      fusha
+#: ====================  ======  ======  ======  ======
+#: ``n_prefix_1sg``      67,7 %  72,0 %  42,9 %  66,6 %
+#: ``relativizer_elli``   5,1 %  26,0 %   3,3 %   0,0 %
+#: ``interrog_3lach``     4,4 %   5,8 %   0,6 %   0,0 %
+#: ====================  ======  ======  ======  ======
+#:
+#: Ces trois-là ne discriminent pas : le préfixe ``ن-`` note le *je* en
+#: tunisien et le *nous* en arabe classique, d'où 66,6 % côté fusha ; ``اللي``
+#: est **cinq fois plus fréquent en marocain** qu'en tunisien ; ``علاش`` aussi
+#: est plus marocain.
+#:
+#: Effet mesuré sur la règle « au moins un marqueur » :
+#:
+#: - avec les dix-neuf : 86,6 % du tunisien, **86,0 % du marocain**, 67,1 % de
+#:   la fusha. Écart discriminant : **+0,6 %**. Autant tirer à pile ou face.
+#: - sans ces trois : 66,8 % du tunisien, 37,0 % du marocain, **2,0 %** de la
+#:   fusha. Écart : **+29,8 %**.
+#:
+#: Le gain porte surtout sur la fusha, et c'est ce qu'on demande à ce signal :
+#: le classifieur écarte déjà très bien le marocain, il trébuche sur la fusha
+#: conversationnelle (biais nº 7).
+DISCRIMINANT: Final[frozenset[str]] = frozenset(
+    set(MARKERS) - {"n_prefix_1sg", "relativizer_elli", "interrog_3lach"}
+)
 
 _COMPILED: Final[dict[str, re.Pattern[str]]] = {
     name: re.compile(pat) for name, (pat, _, _) in MARKERS.items()
@@ -166,6 +204,7 @@ def explain(text: str) -> str:
 
 
 __all__ = [
+    "DISCRIMINANT",
     "MARKERS",
     "MODERN_MARKERS",
     "Match",

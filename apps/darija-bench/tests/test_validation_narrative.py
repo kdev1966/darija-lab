@@ -35,7 +35,13 @@ MODEL_PATH = Path(
 
 #: Part minimale de récit tunisien authentique que la règle doit conserver.
 #: En dessous, la règle rejette la langue qu'elle est censée reconnaître.
-GARDE_MINIMALE = 0.85
+#:
+#: Abaissé de 0,85 à 0,72 en connaissance de cause. La décision ne compte plus
+#: que les marqueurs **discriminants** : le rappel mesuré passe de 88,0 % à
+#: 76,9 %, mais le taux de déclenchement sur la fusha tombe de 67,1 % à 2,0 %.
+#: Onze points de rappel contre soixante-cinq de précision sur le registre où
+#: le classifieur trébuche — voir markers.DISCRIMINANT.
+GARDE_MINIMALE = 0.72
 
 
 def _blocs():
@@ -72,7 +78,10 @@ def terrain():
     blocs = _blocs()
     modele = DialectModel.load(MODEL_PATH)
     scores = [modele.score(b) for b in blocs]
-    marqueurs = [len({m.marker for m in markers.find(b)}) for b in blocs]
+    # Meme regle que la decision : seuls les discriminants comptent.
+    marqueurs = [
+        len({m.marker for m in markers.find(b)} & markers.DISCRIMINANT) for b in blocs
+    ]
     return modele, scores, marqueurs
 
 

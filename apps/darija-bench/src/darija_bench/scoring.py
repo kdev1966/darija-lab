@@ -18,18 +18,26 @@ seuil de 0,838) — 33 % de faux positifs là où l'encyclopédique en donnait
 0,4 %. C'est le biais nº 6 du dépôt qui se répète : un agrégat rassurant qui ne
 généralise pas au registre qui compte.
 
-**Ce qui marche.** Les marqueurs échouent à séparer le tunisien du marocain,
-qui partage ``علاش`` ``كيفاش`` ``وين`` ``اللي`` — c'est mesuré, et le module
-l'annonce (AUC ~0,77). Mais la fusha n'en utilise **aucun** : sur le même jeu,
-0 ou 1 marqueur distinct côté fusha, 2 à 5 côté tunisien. Les deux signaux
-couvrent exactement l'angle mort l'un de l'autre. En conjonction — classifieur
-au-dessus du seuil **et** au moins deux marqueurs distincts — 0 faux positif
-sur 6 et 6 vrais positifs sur 6.
+**Ce qui marche.** La fusha n'utilise pas les marqueurs du tunisien. Le
+classifieur écarte très bien le marocain mais trébuche sur la fusha
+conversationnelle ; les marqueurs font l'inverse. En conjonction, chacun
+couvre l'angle mort de l'autre.
 
-**Statut de cette règle : provisoire.** Six textes par côté, écrits par une
-seule main. C'est une indication, pas un seuil validé. La première campagne
-réelle sert donc aussi à valider la règle elle-même, et le rapport garde les
-deux signaux séparés pour qu'on puisse la réviser sans recollecter.
+**Mais tous les marqueurs ne se valent pas**, et l'ignorer rendait la règle
+inopérante. Mesuré sur les corpus du dépôt : la règle « au moins un marqueur »
+déclenchait sur 86,6 % du tunisien et **86,0 % du marocain** — un tirage à pile
+ou face. Trois coupables : le préfixe ``ن-`` note le *je* en tunisien et le
+*nous* en arabe classique (66,6 % de la fusha), ``اللي`` est cinq fois plus
+fréquent en marocain qu'en tunisien, ``علاش`` aussi.
+
+La décision ne compte donc que :data:`darija.markers.DISCRIMINANT`. Effet
+mesuré : le rappel sur 432 blocs de récit tunisien authentique passe de 88,0 %
+à 76,9 %, et le déclenchement sur la fusha de 67,1 % à **2,0 %**. Onze points
+de rappel contre soixante-cinq de précision, sur le registre où le classifieur
+échoue.
+
+Les marqueurs écartés restent **affichés** : ils expliquent, ils ne décident
+pas.
 
 Réserve indépendante : **la translittération de l'Arabizi est approximative**.
 ``arabizi.to_arabic`` rend ``barcha`` en ``بارشا`` et non ``برشا`` — que le
@@ -180,7 +188,10 @@ def evaluate(
     predicted = model.predict(text)
     score = model.score(text)
     above = score >= model.threshold
-    distinct = len({m.marker for m in markers.find(text)})
+    # Seuls les marqueurs discriminants entrent dans la décision. Compter
+    # les dix-neuf rendait la règle inopérante : 86,6 % du tunisien mais
+    # 86,0 % du marocain. Voir markers.DISCRIMINANT.
+    distinct = len({m.marker for m in markers.find(text)} & markers.DISCRIMINANT)
     return Verdict(
         **common,
         scorable=True,
